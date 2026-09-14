@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquaPulse Online — บ่อกุ้ง A1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F3F7F5;
+    --card: #FFFFFF;
+    --card-border: #E1EBE7;
+    --teal: #0B8A7A;
+    --teal-deep: #0A6D61;
+    --teal-mist: #E4F3EF;
+    --ink: #16302B;
+    --ink-soft: #3D554E;
+    --muted: #86A099;
+    --coral: #D9645A;
+    --amber: #E08B2C;
+    --shadow: 0 1px 3px rgba(20, 50, 42, 0.06), 0 1px 2px rgba(20, 50, 42, 0.04);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px 16px 60px;
+    background: var(--bg); color: var(--ink);
+    font-family: 'Noto Sans Thai', -apple-system, sans-serif;
+    max-width: 640px; margin-left: auto; margin-right: auto;
+  }
+  .header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 18px;
+  }
+  .header-icon {
+    width: 44px; height: 44px; border-radius: 12px; background: var(--teal-deep);
+    display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+  }
+  .header-title { font-size: 17px; font-weight: 700; line-height: 1.2; }
+  .header-sub { font-size: 11.5px; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+  .live-pill {
+    margin-left: auto; display: flex; align-items: center; gap: 6px; padding: 5px 11px;
+    border-radius: 999px; background: var(--teal-mist); color: var(--teal-deep);
+    font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', monospace; white-space: nowrap;
+  }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); }
+  .live-pill.offline { background: #FBEAE8; color: var(--coral); }
+  .live-pill.offline .live-dot { background: var(--coral); }
+
+  .card {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 18px;
+    padding: 18px 20px; box-shadow: var(--shadow); margin-bottom: 14px;
+  }
+  .do-card { display: flex; align-items: center; gap: 20px; }
+  .gauge-wrap { position: relative; width: 118px; height: 118px; flex-shrink: 0; }
+  .gauge-wrap svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .gauge-track { fill: none; stroke: var(--teal-mist); stroke-width: 10; }
+  .gauge-fill { fill: none; stroke: var(--teal); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+  .gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .gauge-value { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; line-height: 1; }
+  .gauge-unit { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .do-info { flex: 1; min-width: 0; }
+  .do-title { font-size: 13px; color: var(--ink-soft); margin-bottom: 8px; }
+  .status-chip {
+    display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px;
+    background: var(--teal-mist); color: var(--teal-deep); font-size: 11.5px; font-weight: 600; margin-bottom: 10px;
+  }
+  .status-chip.warn { background: #FBEAE8; color: var(--coral); }
+  .do-meta-row { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); padding: 4px 0; border-top: 1px solid var(--card-border); }
+  .do-meta-row b { color: var(--ink-soft); font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+  .mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .mini-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow); }
+  .mini-label { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .mini-value { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; }
+  .mini-value span { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 2px; }
+
+  .chart-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 18px; padding: 16px 18px; box-shadow: var(--shadow); margin-bottom: 14px; }
+  .chart-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; }
+  .chart-title { font-size: 13.5px; font-weight: 700; }
+  .chart-range { font-size: 10.5px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .chart-sub { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+  canvas.trend-canvas { width: 100%; height: 150px; display: block; cursor: pointer; }
+  .chart-latest { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-soft); margin-top: 10px;
+    background: var(--bg); border-radius: 9px; padding: 8px 12px; min-height: 16px; }
+  .chart-latest b { color: var(--ink); font-weight: 700; }
+  .chart-tap-hint { font-size: 10px; color: var(--muted); margin-top: 6px; text-align: center; }
+
+  .footer-note { text-align: center; font-size: 10.5px; color: var(--muted); margin-top: 24px; line-height: 1.6; }
+  .footer-note code { font-family: 'JetBrains Mono', monospace; background: var(--teal-mist); padding: 1px 5px; border-radius: 4px; }
+
+  .empty-note { text-align: center; padding: 30px 10px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-icon">🦐</div>
+    <div>
+      <div class="header-title">บ่อกุ้ง A1</div>
+      <div class="header-sub">POND-A1 · ONLINE VIA FIREBASE</div>
+    </div>
+    <div class="live-pill" id="livePill"><span class="live-dot"></span><span id="livePillText">กำลังโหลด</span></div>
+  </div>
+
+  <div class="card do-card">
+    <div class="gauge-wrap">
+      <svg viewBox="0 0 120 120">
+        <circle class="gauge-track" cx="60" cy="60" r="50"></circle>
+        <circle class="gauge-fill" id="gaugeFill" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"></circle>
+      </svg>
+      <div class="gauge-center">
+        <div class="gauge-value" id="doValue">--</div>
+        <div class="gauge-unit">mg/L</div>
+      </div>
+    </div>
+    <div class="do-info">
+      <div class="do-title">ออกซิเจนละลายน้ำ (DO)</div>
+      <div class="status-chip" id="doStatusChip">กำลังเช็ค...</div>
+      <div class="do-meta-row"><span>ช่วงเกณฑ์ปลอดภัย</span><b>≥ 4.0 mg/L</b></div>
+      <div class="do-meta-row"><span>อัปเดตล่าสุด</span><b id="updatedAgo">--</b></div>
+    </div>
+  </div>
+
+  <div class="mini-grid">
+    <div class="mini-card">
+      <div class="mini-label">🌡️ อุณหภูมิน้ำ</div>
+      <div class="mini-value" id="tempValue">-- <span>°C</span></div>
+    </div>
+    <div class="mini-card">
+      <div class="mini-label">🧂 ความเค็ม</div>
+      <div class="mini-value" id="salinityValue">-- <span>ppt</span></div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-title">แนวโน้ม DO (mg/L)</div>
+      <div class="chart-range" id="doChartRange">--</div>
+    </div>
+    <div class="chart-sub">วันนี้ 00:00–24:00 · สเกลปรับตามข้อมูลจริง</div>
+    <canvas class="trend-canvas" id="doChartCanvas"></canvas>
+    <div class="chart-latest" id="doChartTooltip">แตะที่จุดในกราฟเพื่อดูค่า</div>
+    <div class="chart-tap-hint">แตะ/คลิกที่จุดไหนก็ได้เพื่อดูค่าตรงจุดนั้น</div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-title">แนวโน้มอุณหภูมิ (°C)</div>
+      <div class="chart-range" id="tempChartRange">--</div>
+    </div>
+    <div class="chart-sub">วันนี้ 00:00–24:00 · สเกลปรับตามข้อมูลจริง</div>
+    <canvas class="trend-canvas" id="tempChartCanvas"></canvas>
+    <div class="chart-latest" id="tempChartTooltip">แตะที่จุดในกราฟเพื่อดูค่า</div>
+    <div class="chart-tap-hint">แตะ/คลิกที่จุดไหนก็ได้เพื่อดูค่าตรงจุดนั้น</div>
+  </div>
+
+  <div class="footer-note">
+    ข้อมูลจาก Firebase Realtime Database · <code id="deviceIdLabel">pond_a1</code><br>
+    อัปเดตอัตโนมัติทุก 30 วินาที
+  </div>
+
+<script>
+  // ---------- ตั้งค่า Firebase (ไม่ต้องมี auth เพราะ Rules อนุญาต read สาธารณะที่ path นี้แล้ว) ----------
+  const FIREBASE_HOST = "shrimp-farm-data-default-rtdb.asia-southeast1.firebasedatabase.app";
+  const DEVICE_ID = "pond_a1";
+  document.getElementById('deviceIdLabel').textContent = DEVICE_ID;
+
+  const GAUGE_CIRCUMFERENCE = 2 * Math.PI * 50; // r=50
+  const GAUGE_MAX_DO = 12; // mg/L เต็มวงแหวน
+
+  // ---------- ฟังก์ชันจัดรูปแบบเวลา ----------
+  const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  function formatClock(epochSec) {
+    const d = new Date(epochSec * 1000);
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+  function formatDateShort(epochSec) {
+    const d = new Date(epochSec * 1000);
+    return d.getDate() + ' ' + TH_MONTHS[d.getMonth()];
+  }
+  function formatRelative(secAgo) {
+    if (secAgo < 60) return secAgo + ' วิ';
+    if (secAgo < 3600) return Math.round(secAgo / 60) + ' น.';
+    const hh = Math.floor(secAgo / 3600);
+    const mm = Math.round((secAgo % 3600) / 60);
+    return hh + ' ชม.' + (mm > 0 ? ' ' + mm + 'น.' : '');
+  }
+  function startOfDayEpoch(epochSec) {
+    const d = new Date(epochSec * 1000);
+    d.setHours(0, 0, 0, 0);
+    return Math.floor(d.getTime() / 1000);
+  }
+
+  // ---------- อัปเดตค่าล่าสุด (การ์ด gauge + mini cards) ----------
+  async function updateLatest() {
+    const livePill = document.getElementById('livePill');
+    const livePillText = document.getElementById('livePillText');
+    try {
+      const res = await fetch(`https://${FIREBASE_HOST}/devices/${DEVICE_ID}/latest.json`);
+      const data = await res.json();
+
+      if (!data) {
+        livePill.className = 'live-pill offline';
+        livePillText.textContent = 'ยังไม่มีข้อมูล';
+        return;
+      }
+
+      livePill.className = 'live-pill';
+      livePillText.textContent = 'ออนไลน์';
+
+      const doVal = data.do ?? 0;
+      document.getElementById('doValue').textContent = doVal.toFixed(2);
+      document.getElementById('tempValue').innerHTML = (data.temp ?? 0).toFixed(1) + ' <span>°C</span>';
+      document.getElementById('salinityValue').innerHTML = (data.salinity ?? 0) + ' <span>ppt</span>';
+
+      const frac = Math.min(doVal / GAUGE_MAX_DO, 1);
+      const offset = GAUGE_CIRCUMFERENCE * (1 - frac);
+      document.getElementById('gaugeFill').style.strokeDashoffset = offset;
+
+      const chip = document.getElementById('doStatusChip');
+      if (doVal >= 4.0) {
+        chip.className = 'status-chip';
+        chip.textContent = '✓ อยู่ในเกณฑ์ปกติ';
+      } else {
+        chip.className = 'status-chip warn';
+        chip.textContent = '⚠ ต่ำกว่าเกณฑ์ปลอดภัย';
+      }
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      if (data.epoch && data.epoch > 0) {
+        document.getElementById('updatedAgo').textContent = formatRelative(Math.max(0, nowSec - data.epoch)) + ' ที่แล้ว';
+      } else {
+        document.getElementById('updatedAgo').textContent = 'ไม่ทราบเวลา';
+      }
+    } catch (e) {
+      livePill.className = 'live-pill offline';
+      livePillText.textContent = 'เชื่อมต่อไม่ได้';
+    }
+  }
+
+  // ---------- เก็บสถานะกราฟไว้ใช้ตอนแตะจุด ----------
+  const chartState = {
+    do: { canvas: null, points: [], xOfPoint: null },
+    temp: { canvas: null, points: [], xOfPoint: null }
+  };
+
+  function drawScatterChart(key, canvasId, points, getValue, color) {
+    const canvas = document.getElementById(canvasId);
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    const w = rect.width, h = rect.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const padL = 34, padR = 8, padTop = 22, padBottom = 20;
+    const plotH = h - padTop - padBottom;
+    const plotW = w - padL - padR;
+    const DAY_SEC = 24 * 3600;
+
+    const nowEpoch = Math.floor(Date.now() / 1000);
+    const dayStart = startOfDayEpoch(nowEpoch);
+    const todays = points.filter(p => p.epoch >= dayStart && p.epoch < dayStart + DAY_SEC);
+
+    function xOfPoint(p) {
+      const frac = (p.epoch - dayStart) / DAY_SEC;
+      return padL + Math.min(Math.max(frac, 0), 1) * plotW;
+    }
+    chartState[key].canvas = canvas;
+    chartState[key].points = todays;
+    chartState[key].xOfPoint = xOfPoint;
+
+    // ป้ายวันที่มุมขวาบน
+    ctx.fillStyle = '#4A655F'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(formatDateShort(nowEpoch), w - 2, 10);
+
+    // เส้นกริดแนวตั้งทุก 6 ชม.
+    const gridTicks = [
+      { frac: 0, label: '00:00' }, { frac: 0.25, label: '06:00' },
+      { frac: 0.5, label: '12:00' }, { frac: 0.75, label: '18:00' }, { frac: 1, label: '24:00' },
+    ];
+    ctx.strokeStyle = '#EAF2EF'; ctx.lineWidth = 1;
+    gridTicks.forEach(t => {
+      const x = padL + t.frac * plotW;
+      ctx.beginPath(); ctx.moveTo(x, padTop); ctx.lineTo(x, padTop + plotH); ctx.stroke();
+    });
+
+    if (todays.length < 1) {
+      ctx.fillStyle = '#86A099'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('ยังไม่มีข้อมูลของวันนี้', w / 2, padTop + plotH / 2);
+    } else {
+      const values = todays.map(getValue);
+      let vMin = Math.min(...values), vMax = Math.max(...values);
+      if (vMax - vMin < 0.5) {
+        const mid = (vMax + vMin) / 2;
+        vMin = mid - 0.5; vMax = mid + 0.5;
+      }
+      const margin = (vMax - vMin) * 0.12;
+      vMin = Math.max(0, vMin - margin);
+      vMax = vMax + margin;
+
+      function yOf(value) { return padTop + plotH - ((value - vMin) / (vMax - vMin)) * plotH; }
+
+      todays.forEach((p, i) => {
+        const x = xOfPoint(p);
+        const y = yOf(getValue(p));
+        const isLast = i === todays.length - 1;
+        ctx.globalAlpha = isLast ? 1 : 0.55;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, isLast ? 5 : 2.2, 0, Math.PI * 2);
+        ctx.fill();
+        if (isLast) { ctx.globalAlpha = 1; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5; ctx.stroke(); }
+      });
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = '#86A099'; ctx.font = '9.5px monospace'; ctx.textAlign = 'left';
+      ctx.fillText(vMax.toFixed(1), 2, padTop + 8);
+      ctx.fillText(vMin.toFixed(1), 2, padTop + plotH - 2);
+    }
+
+    // เส้น "ตอนนี้"
+    const nowFrac = (nowEpoch - dayStart) / DAY_SEC;
+    const nowX = padL + Math.min(Math.max(nowFrac, 0), 1) * plotW;
+    ctx.strokeStyle = color; ctx.globalAlpha = 0.35; ctx.setLineDash([2, 2]); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(nowX, padTop); ctx.lineTo(nowX, padTop + plotH); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+
+    // แกนเวลาด้านล่าง
+    ctx.fillStyle = '#86A099'; ctx.font = '9.5px monospace'; ctx.textAlign = 'center';
+    gridTicks.forEach(t => {
+      const x = padL + t.frac * plotW;
+      ctx.fillText(t.label, x, h - 5);
+    });
+  }
+
+  function setupChartTap(key, canvasId, tooltipId, unit) {
+    const canvas = document.getElementById(canvasId);
+    const handler = (evt) => {
+      const state = chartState[key];
+      if (!state.points.length || !state.xOfPoint) return;
+      const rect = state.canvas.getBoundingClientRect();
+      const tapX = evt.clientX - rect.left;
+      let closest = state.points[0], bestDiff = Infinity;
+      state.points.forEach(p => {
+        const diff = Math.abs(state.xOfPoint(p) - tapX);
+        if (diff < bestDiff) { bestDiff = diff; closest = p; }
+      });
+      const value = key === 'do' ? closest.do : closest.temp;
+      document.getElementById(tooltipId).innerHTML =
+        '<b>' + value.toFixed(2) + ' ' + unit + '</b> — ' + formatClock(closest.epoch) + ' น. · ' + formatDateShort(closest.epoch);
+    };
+    canvas.addEventListener('click', handler);
+    canvas.addEventListener('touchstart', (e) => { if (e.touches.length > 0) handler(e.touches[0]); }, { passive: true });
+  }
+
+  async function updateHistory() {
+    try {
+      const res = await fetch(`https://${FIREBASE_HOST}/devices/${DEVICE_ID}/history.json`);
+      const raw = await res.json();
+
+      if (!raw) {
+        drawScatterChart('do', 'doChartCanvas', [], p => p.do, '#0B8A7A');
+        drawScatterChart('temp', 'tempChartCanvas', [], p => p.temp, '#E08B2C');
+        document.getElementById('doChartRange').textContent = 'ยังไม่มีข้อมูล';
+        document.getElementById('tempChartRange').textContent = 'ยังไม่มีข้อมูล';
+        return;
+      }
+
+      // raw เป็น object คีย์ = epoch string -> {do, temp, salinity} แปลงเป็น array แล้วเรียงตามเวลา
+      const points = Object.keys(raw).map(k => ({
+        epoch: parseInt(k, 10),
+        do: raw[k].do,
+        temp: raw[k].temp,
+        salinity: raw[k].salinity
+      })).sort((a, b) => a.epoch - b.epoch);
+
+      drawScatterChart('do', 'doChartCanvas', points, p => p.do, '#0B8A7A');
+      drawScatterChart('temp', 'tempChartCanvas', points, p => p.temp, '#E08B2C');
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const dayStart = startOfDayEpoch(nowSec);
+      const todaysCount = points.filter(p => p.epoch >= dayStart).length;
+      const rangeText = 'วันนี้ · ' + todaysCount + ' จุด';
+      document.getElementById('doChartRange').textContent = rangeText;
+      document.getElementById('tempChartRange').textContent = rangeText;
+    } catch (e) {
+      document.getElementById('doChartRange').textContent = 'โหลดไม่ได้';
+      document.getElementById('tempChartRange').textContent = 'โหลดไม่ได้';
+    }
+  }
+
+  setupChartTap('do', 'doChartCanvas', 'doChartTooltip', 'mg/L');
+  setupChartTap('temp', 'tempChartCanvas', 'tempChartTooltip', '°C');
+
+  function refreshAll() {
+    updateLatest();
+    updateHistory();
+  }
+
+  refreshAll();
+  setInterval(refreshAll, 30000);
+  window.addEventListener('resize', updateHistory);
+</script>
+</body>
+</html>
