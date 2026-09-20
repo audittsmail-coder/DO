@@ -75,7 +75,7 @@
   .mini-value span { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 2px; }
 
   .chart-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 18px; padding: 16px 18px; box-shadow: var(--shadow); margin-bottom: 14px; }
-  .chart-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; }
+  .chart-header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 3px; }
   .chart-title { font-size: 13.5px; font-weight: 700; }
   .chart-range { font-size: 10.5px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
   .chart-sub { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
@@ -84,6 +84,16 @@
     background: var(--bg); border-radius: 9px; padding: 8px 12px; min-height: 16px; }
   .chart-latest b { color: var(--ink); font-weight: 700; }
   .chart-tap-hint { font-size: 10px; color: var(--muted); margin-top: 6px; text-align: center; }
+
+  .section-label { font-size: 12.5px; font-weight: 700; color: var(--ink-soft); margin: 22px 2px 10px; display: flex; align-items: center; gap: 6px; }
+
+  .range-tabs { display: flex; gap: 4px; }
+  .range-tab {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
+    border: 1px solid var(--card-border); background: var(--bg); color: var(--muted);
+    padding: 3px 9px; border-radius: 999px; cursor: pointer;
+  }
+  .range-tab.active { background: var(--teal-deep); border-color: var(--teal-deep); color: #fff; }
 
   .footer-note { text-align: center; font-size: 10.5px; color: var(--muted); margin-top: 24px; line-height: 1.6; }
   .footer-note code { font-family: 'JetBrains Mono', monospace; background: var(--teal-mist); padding: 1px 5px; border-radius: 4px; }
@@ -152,6 +162,38 @@
     <canvas class="trend-canvas" id="tempChartCanvas"></canvas>
     <div class="chart-latest" id="tempChartTooltip">แตะที่จุดในกราฟเพื่อดูค่า</div>
     <div class="chart-tap-hint">แตะ/คลิกที่จุดไหนก็ได้เพื่อดูค่าตรงจุดนั้น</div>
+  </div>
+
+  <div class="section-label">📅 ประวัติย้อนหลังรายวัน</div>
+
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-title">DO เฉลี่ยรายวัน (mg/L)</div>
+      <div class="range-tabs" id="doDailyRangeTabs">
+        <button class="range-tab" data-days="7">7 วัน</button>
+        <button class="range-tab active" data-days="14">14 วัน</button>
+        <button class="range-tab" data-days="30">30 วัน</button>
+      </div>
+    </div>
+    <div class="chart-sub">จุด = ค่าเฉลี่ยต่อวัน · เส้นแนวตั้งแสดงช่วงต่ำสุด–สูงสุดของวันนั้น</div>
+    <canvas class="trend-canvas" id="doDailyChartCanvas"></canvas>
+    <div class="chart-latest" id="doDailyChartTooltip">แตะจุด/แท่งในกราฟเพื่อดูค่าของวันนั้น</div>
+    <div class="chart-tap-hint">แตะ/คลิกที่วันไหนก็ได้เพื่อดูค่าเฉลี่ย ต่ำสุด สูงสุด</div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-title">อุณหภูมิเฉลี่ยรายวัน (°C)</div>
+      <div class="range-tabs" id="tempDailyRangeTabs">
+        <button class="range-tab" data-days="7">7 วัน</button>
+        <button class="range-tab active" data-days="14">14 วัน</button>
+        <button class="range-tab" data-days="30">30 วัน</button>
+      </div>
+    </div>
+    <div class="chart-sub">จุด = ค่าเฉลี่ยต่อวัน · เส้นแนวตั้งแสดงช่วงต่ำสุด–สูงสุดของวันนั้น</div>
+    <canvas class="trend-canvas" id="tempDailyChartCanvas"></canvas>
+    <div class="chart-latest" id="tempDailyChartTooltip">แตะจุด/แท่งในกราฟเพื่อดูค่าของวันนั้น</div>
+    <div class="chart-tap-hint">แตะ/คลิกที่วันไหนก็ได้เพื่อดูค่าเฉลี่ย ต่ำสุด สูงสุด</div>
   </div>
 
   <div class="footer-note">
@@ -356,33 +398,34 @@
     canvas.addEventListener('touchstart', (e) => { if (e.touches.length > 0) handler(e.touches[0]); }, { passive: true });
   }
 
+  let historyPoints = []; // แคชข้อมูลทั้งหมดไว้ใช้ซ้ำตอน resize / เปลี่ยนช่วงวัน โดยไม่ต้อง fetch ใหม่
+
   async function updateHistory() {
     try {
       const res = await fetch(`https://${FIREBASE_HOST}/devices/${DEVICE_ID}/history.json`);
       const raw = await res.json();
 
       if (!raw) {
-        drawScatterChart('do', 'doChartCanvas', [], p => p.do, '#0B8A7A');
-        drawScatterChart('temp', 'tempChartCanvas', [], p => p.temp, '#E08B2C');
+        historyPoints = [];
+        redrawFromCache();
         document.getElementById('doChartRange').textContent = 'ยังไม่มีข้อมูล';
         document.getElementById('tempChartRange').textContent = 'ยังไม่มีข้อมูล';
         return;
       }
 
       // raw เป็น object คีย์ = epoch string -> {do, temp, salinity} แปลงเป็น array แล้วเรียงตามเวลา
-      const points = Object.keys(raw).map(k => ({
+      historyPoints = Object.keys(raw).map(k => ({
         epoch: parseInt(k, 10),
         do: raw[k].do,
         temp: raw[k].temp,
         salinity: raw[k].salinity
       })).sort((a, b) => a.epoch - b.epoch);
 
-      drawScatterChart('do', 'doChartCanvas', points, p => p.do, '#0B8A7A');
-      drawScatterChart('temp', 'tempChartCanvas', points, p => p.temp, '#E08B2C');
+      redrawFromCache();
 
       const nowSec = Math.floor(Date.now() / 1000);
       const dayStart = startOfDayEpoch(nowSec);
-      const todaysCount = points.filter(p => p.epoch >= dayStart).length;
+      const todaysCount = historyPoints.filter(p => p.epoch >= dayStart).length;
       const rangeText = 'วันนี้ · ' + todaysCount + ' จุด';
       document.getElementById('doChartRange').textContent = rangeText;
       document.getElementById('tempChartRange').textContent = rangeText;
@@ -392,8 +435,171 @@
     }
   }
 
+  function redrawFromCache() {
+    drawScatterChart('do', 'doChartCanvas', historyPoints, p => p.do, '#0B8A7A');
+    drawScatterChart('temp', 'tempChartCanvas', historyPoints, p => p.temp, '#E08B2C');
+    renderDailyCharts();
+  }
+
   setupChartTap('do', 'doChartCanvas', 'doChartTooltip', 'mg/L');
   setupChartTap('temp', 'tempChartCanvas', 'tempChartTooltip', '°C');
+
+  // ---------- กราฟประวัติย้อนหลังรายวัน (ค่าเฉลี่ย + ช่วงต่ำสุด–สูงสุด ต่อวัน) ----------
+  const dailyChartState = {
+    do: { canvas: null, bins: [], xOfBin: null },
+    temp: { canvas: null, bins: [], xOfBin: null }
+  };
+  const dailyRangeDays = { do: 14, temp: 14 };
+
+  function statsOf(arr) {
+    if (!arr.length) return null;
+    const sum = arr.reduce((a, b) => a + b, 0);
+    return { avg: sum / arr.length, min: Math.min(...arr), max: Math.max(...arr), count: arr.length };
+  }
+
+  // แบ่งข้อมูลทั้งหมดเป็นช่อง "รายวัน" ย้อนหลัง N วันนับจากวันนี้ แล้วสรุปค่าเฉลี่ย/ต่ำสุด/สูงสุดของแต่ละวัน
+  function aggregateDaily(points, days) {
+    const DAY_SEC = 24 * 3600;
+    const todayStart = startOfDayEpoch(Math.floor(Date.now() / 1000));
+    const firstDayStart = todayStart - (days - 1) * DAY_SEC;
+    const bins = [];
+    for (let i = 0; i < days; i++) {
+      bins.push({ dayStart: firstDayStart + i * DAY_SEC, do: [], temp: [] });
+    }
+    points.forEach(p => {
+      const idx = Math.floor((p.epoch - firstDayStart) / DAY_SEC);
+      if (idx >= 0 && idx < bins.length) {
+        bins[idx].do.push(p.do);
+        bins[idx].temp.push(p.temp);
+      }
+    });
+    return bins.map(b => ({ dayStart: b.dayStart, do: statsOf(b.do), temp: statsOf(b.temp) }));
+  }
+
+  function drawDailyChart(key, canvasId, bins, getStats, color) {
+    const canvas = document.getElementById(canvasId);
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    const w = rect.width, h = rect.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const padL = 34, padR = 8, padTop = 14, padBottom = 20;
+    const plotH = h - padTop - padBottom;
+    const plotW = w - padL - padR;
+    const n = bins.length;
+    const slot = plotW / n;
+
+    function xOfBin(i) { return padL + slot * (i + 0.5); }
+    dailyChartState[key].canvas = canvas;
+    dailyChartState[key].bins = bins;
+    dailyChartState[key].xOfBin = xOfBin;
+
+    const withData = bins.map((b, i) => ({ b, i })).filter(x => getStats(x.b));
+
+    if (withData.length < 1) {
+      ctx.fillStyle = '#86A099'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('ยังไม่มีข้อมูลย้อนหลัง', w / 2, padTop + plotH / 2);
+    } else {
+      let vMin = Infinity, vMax = -Infinity;
+      withData.forEach(({ b }) => {
+        const s = getStats(b);
+        vMin = Math.min(vMin, s.min);
+        vMax = Math.max(vMax, s.max);
+      });
+      if (vMax - vMin < 0.5) {
+        const mid = (vMax + vMin) / 2;
+        vMin = mid - 0.5; vMax = mid + 0.5;
+      }
+      const margin = (vMax - vMin) * 0.15;
+      vMin = Math.max(0, vMin - margin);
+      vMax = vMax + margin;
+
+      function yOf(value) { return padTop + plotH - ((value - vMin) / (vMax - vMin)) * plotH; }
+
+      ctx.strokeStyle = '#EAF2EF'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(padL, padTop); ctx.lineTo(padL + plotW, padTop); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(padL, padTop + plotH); ctx.lineTo(padL + plotW, padTop + plotH); ctx.stroke();
+
+      withData.forEach(({ b, i }) => {
+        const s = getStats(b);
+        const x = xOfBin(i);
+        const isLast = i === n - 1;
+        ctx.globalAlpha = isLast ? 1 : 0.6;
+        ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x, yOf(s.min)); ctx.lineTo(x, yOf(s.max)); ctx.stroke();
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(x, yOf(s.avg), isLast ? 5 : 3, 0, Math.PI * 2); ctx.fill();
+        if (isLast) { ctx.globalAlpha = 1; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5; ctx.stroke(); }
+      });
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = '#86A099'; ctx.font = '9.5px monospace'; ctx.textAlign = 'left';
+      ctx.fillText(vMax.toFixed(1), 2, padTop + 8);
+      ctx.fillText(vMin.toFixed(1), 2, padTop + plotH - 2);
+    }
+
+    // แกนวันที่ด้านล่าง แสดงป้ายเฉพาะบางวันถ้ามีจุดเยอะ กันตัวหนังสือทับกัน
+    const labelStep = Math.max(1, Math.ceil(n / (n <= 7 ? 7 : 6)));
+    ctx.fillStyle = '#86A099'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+    bins.forEach((b, i) => {
+      if (i % labelStep === 0 || i === n - 1) {
+        ctx.fillText(formatDateShort(b.dayStart), xOfBin(i), h - 5);
+      }
+    });
+  }
+
+  function setupDailyChartTap(key, canvasId, tooltipId, unit, getStats) {
+    const canvas = document.getElementById(canvasId);
+    const handler = (evt) => {
+      const state = dailyChartState[key];
+      if (!state.bins.length || !state.xOfBin) return;
+      const rect = state.canvas.getBoundingClientRect();
+      const tapX = evt.clientX - rect.left;
+      let closestIdx = 0, bestDiff = Infinity;
+      state.bins.forEach((b, i) => {
+        const diff = Math.abs(state.xOfBin(i) - tapX);
+        if (diff < bestDiff) { bestDiff = diff; closestIdx = i; }
+      });
+      const bin = state.bins[closestIdx];
+      const s = getStats(bin);
+      const tooltipEl = document.getElementById(tooltipId);
+      if (!s) {
+        tooltipEl.textContent = 'ไม่มีข้อมูลของวันที่ ' + formatDateShort(bin.dayStart);
+        return;
+      }
+      tooltipEl.innerHTML = '<b>เฉลี่ย ' + s.avg.toFixed(2) + ' ' + unit + '</b> (ต่ำสุด ' + s.min.toFixed(2) +
+        ' · สูงสุด ' + s.max.toFixed(2) + ') — ' + formatDateShort(bin.dayStart) + ' · ' + s.count + ' จุด';
+    };
+    canvas.addEventListener('click', handler);
+    canvas.addEventListener('touchstart', (e) => { if (e.touches.length > 0) handler(e.touches[0]); }, { passive: true });
+  }
+
+  function renderDailyCharts() {
+    const doBins = aggregateDaily(historyPoints, dailyRangeDays.do);
+    const tempBins = aggregateDaily(historyPoints, dailyRangeDays.temp);
+    drawDailyChart('do', 'doDailyChartCanvas', doBins, b => b.do, '#0B8A7A');
+    drawDailyChart('temp', 'tempDailyChartCanvas', tempBins, b => b.temp, '#E08B2C');
+  }
+
+  function setupRangeTabs(containerId, key) {
+    const container = document.getElementById(containerId);
+    container.querySelectorAll('.range-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        container.querySelectorAll('.range-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        dailyRangeDays[key] = parseInt(btn.dataset.days, 10);
+        renderDailyCharts();
+      });
+    });
+  }
+  setupRangeTabs('doDailyRangeTabs', 'do');
+  setupRangeTabs('tempDailyRangeTabs', 'temp');
+  setupDailyChartTap('do', 'doDailyChartCanvas', 'doDailyChartTooltip', 'mg/L', b => b.do);
+  setupDailyChartTap('temp', 'tempDailyChartCanvas', 'tempDailyChartTooltip', '°C', b => b.temp);
 
   function refreshAll() {
     updateLatest();
@@ -402,7 +608,7 @@
 
   refreshAll();
   setInterval(refreshAll, 30000);
-  window.addEventListener('resize', updateHistory);
+  window.addEventListener('resize', redrawFromCache);
 </script>
 </body>
 </html>
