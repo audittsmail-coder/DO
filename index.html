@@ -95,6 +95,19 @@
   }
   .range-tab.active { background: var(--teal-deep); border-color: var(--teal-deep); color: #fff; }
 
+  .clear-options { display: flex; flex-wrap: wrap; gap: 14px 20px; margin: 10px 0 14px; }
+  .clear-check { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-soft); cursor: pointer; }
+  .clear-check input { width: 16px; height: 16px; accent-color: var(--coral); cursor: pointer; }
+  .danger-btn {
+    width: 100%; padding: 11px; border: none; border-radius: 12px; background: var(--coral); color: #fff;
+    font-family: 'Noto Sans Thai', sans-serif; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  }
+  .danger-btn:disabled { opacity: 0.55; cursor: default; }
+  .danger-btn:active:not(:disabled) { transform: scale(0.98); }
+  .clear-status { font-size: 11.5px; margin-top: 10px; min-height: 14px; }
+  .clear-status.ok { color: var(--teal-deep); font-weight: 600; }
+  .clear-status.warn { color: var(--coral); font-weight: 600; }
+
   .footer-note { text-align: center; font-size: 10.5px; color: var(--muted); margin-top: 24px; line-height: 1.6; }
   .footer-note code { font-family: 'JetBrains Mono', monospace; background: var(--teal-mist); padding: 1px 5px; border-radius: 4px; }
 
@@ -194,6 +207,21 @@
     <canvas class="trend-canvas" id="tempDailyChartCanvas"></canvas>
     <div class="chart-latest" id="tempDailyChartTooltip">แตะจุด/แท่งในกราฟเพื่อดูค่าของวันนั้น</div>
     <div class="chart-tap-hint">แตะ/คลิกที่วันไหนก็ได้เพื่อดูค่าเฉลี่ย ต่ำสุด สูงสุด</div>
+  </div>
+
+  <div class="section-label">🗑️ จัดการข้อมูล</div>
+
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-title">ล้างข้อมูลย้อนหลัง</div>
+    </div>
+    <div class="chart-sub">เลือกค่าที่ต้องการล้างออกจากประวัติทั้งหมด — ลบถาวร กู้คืนไม่ได้</div>
+    <div class="clear-options">
+      <label class="clear-check"><input type="checkbox" id="clearDoCheck" checked> ออกซิเจน (DO)</label>
+      <label class="clear-check"><input type="checkbox" id="clearTempCheck" checked> อุณหภูมิ</label>
+    </div>
+    <button class="danger-btn" id="clearDataBtn">ล้างข้อมูลที่เลือก</button>
+    <div class="clear-status" id="clearStatus"></div>
   </div>
 
   <div class="footer-note">
@@ -304,7 +332,7 @@
 
     const nowEpoch = Math.floor(Date.now() / 1000);
     const dayStart = startOfDayEpoch(nowEpoch);
-    const todays = points.filter(p => p.epoch >= dayStart && p.epoch < dayStart + DAY_SEC);
+    const todays = points.filter(p => p.epoch >= dayStart && p.epoch < dayStart + DAY_SEC && getValue(p) != null);
 
     function xOfPoint(p) {
       const frac = (p.epoch - dayStart) / DAY_SEC;
@@ -469,8 +497,8 @@
     points.forEach(p => {
       const idx = Math.floor((p.epoch - firstDayStart) / DAY_SEC);
       if (idx >= 0 && idx < bins.length) {
-        bins[idx].do.push(p.do);
-        bins[idx].temp.push(p.temp);
+        if (p.do != null) bins[idx].do.push(p.do);
+        if (p.temp != null) bins[idx].temp.push(p.temp);
       }
     });
     return bins.map(b => ({ dayStart: b.dayStart, do: statsOf(b.do), temp: statsOf(b.temp) }));
@@ -609,6 +637,72 @@
   refreshAll();
   setInterval(refreshAll, 30000);
   window.addEventListener('resize', redrawFromCache);
+
+  // ---------- ล้างข้อมูลย้อนหลัง (DO / อุณหภูมิ / ทั้งสอง) ----------
+  async function clearSelectedData() {
+    const clearDo = document.getElementById('clearDoCheck').checked;
+    const clearTemp = document.getElementById('clearTempCheck').checked;
+    const statusEl = document.getElementById('clearStatus');
+    const btn = document.getElementById('clearDataBtn');
+
+    if (!clearDo && !clearTemp) {
+      statusEl.textContent = 'กรุณาเลือกอย่างน้อย 1 ค่าก่อนล้างข้อมูล';
+      statusEl.className = 'clear-status warn';
+      return;
+    }
+
+    const labelParts = [];
+    if (clearDo) labelParts.push('ออกซิเจน (DO)');
+    if (clearTemp) labelParts.push('อุณหภูมิ');
+    const confirmMsg = 'ยืนยันล้างข้อมูล ' + labelParts.join(' และ ') + ' ทั้งหมดของบ่อ ' + DEVICE_ID +
+      ' ?\n\nการกระทำนี้ลบข้อมูลออกจาก Firebase ถาวร กู้คืนไม่ได้';
+    if (!window.confirm(confirmMsg)) return;
+
+    btn.disabled = true;
+    statusEl.textContent = 'กำลังล้างข้อมูล...';
+    statusEl.className = 'clear-status';
+
+    try {
+      const res = await fetch(`https://${FIREBASE_HOST}/devices/${DEVICE_ID}/history.json`);
+      const raw = await res.json();
+
+      if (!raw) {
+        statusEl.textContent = 'ไม่มีข้อมูลให้ล้าง';
+        statusEl.className = 'clear-status';
+        return;
+      }
+
+      // อัปเดตหลาย path พร้อมกันในคำขอเดียว โดยตั้งค่า field ที่เลือกเป็น null (Firebase จะลบ field นั้นออก)
+      const updatePayload = {};
+      const keys = Object.keys(raw);
+      keys.forEach(k => {
+        if (clearDo) updatePayload[`history/${k}/do`] = null;
+        if (clearTemp) updatePayload[`history/${k}/temp`] = null;
+      });
+
+      const patchRes = await fetch(`https://${FIREBASE_HOST}/devices/${DEVICE_ID}.json`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatePayload)
+      });
+
+      if (!patchRes.ok) {
+        const errText = await patchRes.text();
+        throw new Error(errText || ('HTTP ' + patchRes.status));
+      }
+
+      statusEl.textContent = '✓ ล้างข้อมูล ' + labelParts.join(' และ ') + ' สำเร็จ (' + keys.length + ' รายการ)';
+      statusEl.className = 'clear-status ok';
+      await updateHistory();
+    } catch (e) {
+      statusEl.textContent = 'ล้างข้อมูลไม่สำเร็จ: ' + (e.message || 'เชื่อมต่อไม่ได้ (ตรวจสอบสิทธิ์เขียนข้อมูลใน Firebase Rules)');
+      statusEl.className = 'clear-status warn';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById('clearDataBtn').addEventListener('click', clearSelectedData);
 </script>
 </body>
 </html>
