@@ -95,6 +95,19 @@
   }
   .range-tab.active { background: var(--teal-deep); border-color: var(--teal-deep); color: #fff; }
 
+  .daily-list { margin-top: 12px; max-height: 220px; overflow-y: auto; border-top: 1px solid var(--card-border); }
+  .daily-list-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    padding: 7px 2px; font-size: 11.5px; border-bottom: 1px solid var(--card-border);
+  }
+  .daily-list-row:last-child { border-bottom: none; }
+  .daily-list-row.today { background: var(--teal-mist); border-radius: 8px; padding-left: 6px; padding-right: 6px; }
+  .daily-list-date { color: var(--ink-soft); font-family: 'JetBrains Mono', monospace; font-weight: 600; white-space: nowrap; }
+  .daily-list-stats { display: flex; align-items: baseline; gap: 6px; }
+  .daily-list-avg { font-family: 'JetBrains Mono', monospace; color: var(--ink); font-weight: 700; }
+  .daily-list-avg.empty { color: var(--muted); font-weight: 500; font-family: 'Noto Sans Thai', sans-serif; }
+  .daily-list-range { color: var(--muted); font-size: 10px; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+
   .clear-options { display: flex; flex-wrap: wrap; gap: 14px 20px; margin: 10px 0 14px; }
   .clear-check { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-soft); cursor: pointer; }
   .clear-check input { width: 16px; height: 16px; accent-color: var(--coral); cursor: pointer; }
@@ -192,6 +205,7 @@
     <canvas class="trend-canvas" id="doDailyChartCanvas"></canvas>
     <div class="chart-latest" id="doDailyChartTooltip">แตะจุด/แท่งในกราฟเพื่อดูค่าของวันนั้น</div>
     <div class="chart-tap-hint">แตะ/คลิกที่วันไหนก็ได้เพื่อดูค่าเฉลี่ย ต่ำสุด สูงสุด</div>
+    <div class="daily-list" id="doDailyList"></div>
   </div>
 
   <div class="chart-card">
@@ -207,6 +221,7 @@
     <canvas class="trend-canvas" id="tempDailyChartCanvas"></canvas>
     <div class="chart-latest" id="tempDailyChartTooltip">แตะจุด/แท่งในกราฟเพื่อดูค่าของวันนั้น</div>
     <div class="chart-tap-hint">แตะ/คลิกที่วันไหนก็ได้เพื่อดูค่าเฉลี่ย ต่ำสุด สูงสุด</div>
+    <div class="daily-list" id="tempDailyList"></div>
   </div>
 
   <div class="section-label">🗑️ จัดการข้อมูล</div>
@@ -606,11 +621,33 @@
     canvas.addEventListener('touchstart', (e) => { if (e.touches.length > 0) handler(e.touches[0]); }, { passive: true });
   }
 
+  // แสดงข้อมูลย้อนหลังเป็นรายการ "รายวัน" ให้ดูตรงๆ ได้โดยไม่ต้องแตะกราฟ (ใหม่สุดอยู่บนสุด)
+  function renderDailyList(listId, bins, getStats, unit) {
+    const el = document.getElementById(listId);
+    const todayStart = startOfDayEpoch(Math.floor(Date.now() / 1000));
+    const rows = bins.slice().reverse().map(b => {
+      const s = getStats(b);
+      const isToday = b.dayStart === todayStart;
+      const dateLabel = formatDateShort(b.dayStart) + (isToday ? ' (วันนี้)' : '');
+      const valueHtml = s
+        ? '<span class="daily-list-avg">' + s.avg.toFixed(2) + ' ' + unit + '</span>' +
+          '<span class="daily-list-range">(' + s.min.toFixed(2) + '–' + s.max.toFixed(2) + ' · ' + s.count + ' จุด)</span>'
+        : '<span class="daily-list-avg empty">ไม่มีข้อมูล</span>';
+      return '<div class="daily-list-row' + (isToday ? ' today' : '') + '">' +
+        '<span class="daily-list-date">' + dateLabel + '</span>' +
+        '<span class="daily-list-stats">' + valueHtml + '</span>' +
+        '</div>';
+    }).join('');
+    el.innerHTML = rows;
+  }
+
   function renderDailyCharts() {
     const doBins = aggregateDaily(historyPoints, dailyRangeDays.do);
     const tempBins = aggregateDaily(historyPoints, dailyRangeDays.temp);
     drawDailyChart('do', 'doDailyChartCanvas', doBins, b => b.do, '#0B8A7A');
     drawDailyChart('temp', 'tempDailyChartCanvas', tempBins, b => b.temp, '#E08B2C');
+    renderDailyList('doDailyList', doBins, b => b.do, 'mg/L');
+    renderDailyList('tempDailyList', tempBins, b => b.temp, '°C');
   }
 
   function setupRangeTabs(containerId, key) {
