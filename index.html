@@ -299,7 +299,7 @@
   const WEATHER_LAT = 7.9514;
   const WEATHER_LON = 98.9978;
   // TODO: ยังไม่ทราบชื่อสถานที่จริงของพิกัดนี้ — ใส่ชื่อจังหวัด/อำเภอ/ชื่อฟาร์มแทนพิกัดได้เลย
-  const WEATHER_LOCATION_NAME = `${WEATHER_LAT.toFixed(4)}°N, ${WEATHER_LON.toFixed(4)}°E`;
+  const WEATHER_LOCATION_NAME = 'จ.กระบี่'; // ประมาณจากพิกัดด้วยสายตา (ไม่ได้ reverse-geocode จริง) — แก้เป็นชื่ออำเภอ/ตำบลที่แน่นอนได้ถ้าทราบ
   const WEATHER_URL = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LAT}&longitude=${WEATHER_LON}` +
     `&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,rain,precipitation,weather_code&timezone=Asia%2FBangkok`;
   const WEATHER_REFRESH_MS = 15 * 60 * 1000; // พยากรณ์อากาศไม่จำเป็นต้องอัปเดตถี่เท่าข้อมูลเซ็นเซอร์
