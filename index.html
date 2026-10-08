@@ -201,7 +201,7 @@
         <button class="range-tab" data-days="30">30 วัน</button>
       </div>
     </div>
-    <div class="chart-sub">จุด = ค่าเฉลี่ยต่อวัน · เส้นแนวตั้งแสดงช่วงต่ำสุด–สูงสุดของวันนั้น</div>
+    <div class="chart-sub">เส้น = ค่าเฉลี่ยรายวัน · แถบแรเงา = ช่วงต่ำสุด–สูงสุดของวันนั้น</div>
     <canvas class="trend-canvas" id="doDailyChartCanvas"></canvas>
     <div class="chart-latest" id="doDailyChartTooltip">แตะจุด/แท่งในกราฟเพื่อดูค่าของวันนั้น</div>
     <div class="chart-tap-hint">แตะ/คลิกที่วันไหนก็ได้เพื่อดูค่าเฉลี่ย ต่ำสุด สูงสุด</div>
@@ -217,7 +217,7 @@
         <button class="range-tab" data-days="30">30 วัน</button>
       </div>
     </div>
-    <div class="chart-sub">จุด = ค่าเฉลี่ยต่อวัน · เส้นแนวตั้งแสดงช่วงต่ำสุด–สูงสุดของวันนั้น</div>
+    <div class="chart-sub">เส้น = ค่าเฉลี่ยรายวัน · แถบแรเงา = ช่วงต่ำสุด–สูงสุดของวันนั้น</div>
     <canvas class="trend-canvas" id="tempDailyChartCanvas"></canvas>
     <div class="chart-latest" id="tempDailyChartTooltip">แตะจุด/แท่งในกราฟเพื่อดูค่าของวันนั้น</div>
     <div class="chart-tap-hint">แตะ/คลิกที่วันไหนก็ได้เพื่อดูค่าเฉลี่ย ต่ำสุด สูงสุด</div>
@@ -346,7 +346,16 @@
     temp: { canvas: null, points: [], xOfPoint: null }
   };
 
-  function drawScatterChart(key, canvasId, points, getValue, color) {
+  // แปลงสี hex เป็น rgba สำหรับพื้นที่แรเงาแบบโปร่งแสง (เช่น '#0B8A7A' + 0.1 -> 'rgba(11,138,122,0.1)')
+  function hexToRgba(hex, alpha) {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+  }
+
+  function drawTrendChart(key, canvasId, points, getValue, color, highlightEpoch) {
     const canvas = document.getElementById(canvasId);
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
@@ -396,6 +405,9 @@
     chartState[key].canvas = canvas;
     chartState[key].points = todays;
     chartState[key].xOfPoint = xOfPoint;
+    chartState[key].rawPoints = points;
+    chartState[key].getValue = getValue;
+    chartState[key].color = color;
 
     // ป้ายวันที่มุมขวาบน
     ctx.fillStyle = '#4A655F'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
@@ -436,18 +448,46 @@
 
       function yOf(value) { return padTop + plotH - ((value - vMin) / (vMax - vMin)) * plotH; }
 
+      // พื้นที่แรเงาใต้เส้น (area fill แบบโปร่งแสง)
+      ctx.beginPath();
       todays.forEach((p, i) => {
-        const x = xOfPoint(p);
-        const y = yOf(getValue(p));
-        const isLast = i === todays.length - 1;
-        ctx.globalAlpha = isLast ? 1 : 0.55;
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(x, y, isLast ? 5 : 2.2, 0, Math.PI * 2);
-        ctx.fill();
-        if (isLast) { ctx.globalAlpha = 1; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5; ctx.stroke(); }
+        const x = xOfPoint(p), y = yOf(getValue(p));
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       });
-      ctx.globalAlpha = 1;
+      ctx.lineTo(xOfPoint(todays[todays.length - 1]), padTop + plotH);
+      ctx.lineTo(xOfPoint(todays[0]), padTop + plotH);
+      ctx.closePath();
+      ctx.fillStyle = hexToRgba(color, 0.1);
+      ctx.fill();
+
+      // เส้นแนวโน้ม
+      ctx.beginPath();
+      todays.forEach((p, i) => {
+        const x = xOfPoint(p), y = yOf(getValue(p));
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // จุดไฮไลต์ — จุดที่แตะ/ชี้อยู่ ถ้าไม่มีการโต้ตอบจะไฮไลต์จุดล่าสุดแทน
+      let highlightPoint = null;
+      if (highlightEpoch != null) {
+        let bestDiff = Infinity;
+        todays.forEach(p => {
+          const diff = Math.abs(p.epoch - highlightEpoch);
+          if (diff < bestDiff) { bestDiff = diff; highlightPoint = p; }
+        });
+      }
+      if (!highlightPoint) highlightPoint = todays[todays.length - 1];
+      const hx = xOfPoint(highlightPoint), hy = yOf(getValue(highlightPoint));
+
+      ctx.strokeStyle = color; ctx.globalAlpha = 0.25; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx, padTop + plotH); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(hx, hy, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2; ctx.stroke();
 
       ctx.fillStyle = '#86A099'; ctx.font = '9.5px monospace'; ctx.textAlign = 'left';
       ctx.fillText(vMax.toFixed(1), 2, padTop + 8);
@@ -483,8 +523,16 @@
       const value = key === 'do' ? closest.do : closest.temp;
       document.getElementById(tooltipId).innerHTML =
         '<b>' + value.toFixed(2) + ' ' + unit + '</b> — ' + formatClock(closest.epoch) + ' น. · ' + formatDateShort(closest.epoch);
+      drawTrendChart(key, canvasId, state.rawPoints, state.getValue, state.color, closest.epoch);
+    };
+    const resetHighlight = () => {
+      const state = chartState[key];
+      if (!state.rawPoints) return;
+      drawTrendChart(key, canvasId, state.rawPoints, state.getValue, state.color, null);
     };
     canvas.addEventListener('click', handler);
+    canvas.addEventListener('mousemove', handler);
+    canvas.addEventListener('mouseleave', resetHighlight);
     canvas.addEventListener('touchstart', (e) => { if (e.touches.length > 0) handler(e.touches[0]); }, { passive: true });
   }
 
@@ -526,8 +574,8 @@
   }
 
   function redrawFromCache() {
-    drawScatterChart('do', 'doChartCanvas', historyPoints, p => p.do, '#0B8A7A');
-    drawScatterChart('temp', 'tempChartCanvas', historyPoints, p => p.temp, '#E08B2C');
+    drawTrendChart('do', 'doChartCanvas', historyPoints, p => p.do, '#0B8A7A');
+    drawTrendChart('temp', 'tempChartCanvas', historyPoints, p => p.temp, '#E08B2C');
     renderDailyCharts();
   }
 
@@ -588,15 +636,14 @@
     dailyChartState[key].bins = bins;
     dailyChartState[key].xOfBin = xOfBin;
 
-    const withData = bins.map((b, i) => ({ b, i })).filter(x => getStats(x.b));
+    const withData = bins.map((b, i) => ({ b, i, s: getStats(b) })).filter(x => x.s);
 
     if (withData.length < 1) {
       ctx.fillStyle = '#86A099'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('ยังไม่มีข้อมูลย้อนหลัง', w / 2, padTop + plotH / 2);
     } else {
       let vMin = Infinity, vMax = -Infinity;
-      withData.forEach(({ b }) => {
-        const s = getStats(b);
+      withData.forEach(({ s }) => {
         vMin = Math.min(vMin, s.min);
         vMax = Math.max(vMax, s.max);
       });
@@ -614,18 +661,61 @@
       ctx.beginPath(); ctx.moveTo(padL, padTop); ctx.lineTo(padL + plotW, padTop); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(padL, padTop + plotH); ctx.lineTo(padL + plotW, padTop + plotH); ctx.stroke();
 
-      withData.forEach(({ b, i }) => {
-        const s = getStats(b);
-        const x = xOfBin(i);
-        const isLast = i === n - 1;
-        ctx.globalAlpha = isLast ? 1 : 0.6;
-        ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(x, yOf(s.min)); ctx.lineTo(x, yOf(s.max)); ctx.stroke();
-        ctx.fillStyle = color;
-        ctx.beginPath(); ctx.arc(x, yOf(s.avg), isLast ? 5 : 3, 0, Math.PI * 2); ctx.fill();
-        if (isLast) { ctx.globalAlpha = 1; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5; ctx.stroke(); }
+      // แบ่งเป็นช่วงต่อเนื่อง คั่นด้วยวันที่ไม่มีข้อมูล กันเส้น/แถบลากข้ามวันที่ขาดข้อมูลแบบชี้นำผิด
+      const segments = [];
+      let current = [];
+      withData.forEach((item, idx) => {
+        const prev = withData[idx - 1];
+        if (prev && item.i - prev.i > 1 && current.length) {
+          segments.push(current);
+          current = [];
+        }
+        current.push(item);
       });
-      ctx.globalAlpha = 1;
+      if (current.length) segments.push(current);
+
+      segments.forEach(seg => {
+        if (seg.length === 1) {
+          // วันเดี่ยวที่ไม่มีวันข้างเคียงมีข้อมูล: แสดงเป็นเส้นขีดช่วงต่ำ–สูง + จุดเฉลี่ย
+          const { i, s } = seg[0];
+          const x = xOfBin(i);
+          ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(x, yOf(s.min)); ctx.lineTo(x, yOf(s.max)); ctx.stroke();
+          ctx.fillStyle = color;
+          ctx.beginPath(); ctx.arc(x, yOf(s.avg), 5, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5; ctx.stroke();
+          return;
+        }
+
+        // แถบแรเงาช่วงต่ำสุด–สูงสุด (ไล่ผ่านค่าสูงสุดไปทางขวา แล้ววกกลับผ่านค่าต่ำสุดมาทางซ้าย)
+        ctx.beginPath();
+        seg.forEach((item, idx) => {
+          const x = xOfBin(item.i), y = yOf(item.s.max);
+          if (idx === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        for (let idx = seg.length - 1; idx >= 0; idx--) {
+          ctx.lineTo(xOfBin(seg[idx].i), yOf(seg[idx].s.min));
+        }
+        ctx.closePath();
+        ctx.fillStyle = hexToRgba(color, 0.12);
+        ctx.fill();
+
+        // เส้นค่าเฉลี่ยรายวัน
+        ctx.beginPath();
+        seg.forEach((item, idx) => {
+          const x = xOfBin(item.i), y = yOf(item.s.avg);
+          if (idx === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+        ctx.stroke();
+      });
+
+      // จุดเน้นวันล่าสุดที่มีข้อมูล
+      const lastItem = withData[withData.length - 1];
+      const lx = xOfBin(lastItem.i), ly = yOf(lastItem.s.avg);
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(lx, ly, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2; ctx.stroke();
 
       ctx.fillStyle = '#86A099'; ctx.font = '9.5px monospace'; ctx.textAlign = 'left';
       ctx.fillText(vMax.toFixed(1), 2, padTop + 8);
