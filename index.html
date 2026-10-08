@@ -173,7 +173,7 @@
       <div class="chart-title">แนวโน้ม DO (mg/L)</div>
       <div class="chart-range" id="doChartRange">--</div>
     </div>
-    <div class="chart-sub">วันนี้ 00:00–24:00 · สเกลปรับตามข้อมูลจริง</div>
+    <div class="chart-sub">วันนี้ · ซูมช่วงเวลาที่มีข้อมูลอัตโนมัติ</div>
     <canvas class="trend-canvas" id="doChartCanvas"></canvas>
     <div class="chart-latest" id="doChartTooltip">แตะที่จุดในกราฟเพื่อดูค่า</div>
     <div class="chart-tap-hint">แตะ/คลิกที่จุดไหนก็ได้เพื่อดูค่าตรงจุดนั้น</div>
@@ -184,7 +184,7 @@
       <div class="chart-title">แนวโน้มอุณหภูมิ (°C)</div>
       <div class="chart-range" id="tempChartRange">--</div>
     </div>
-    <div class="chart-sub">วันนี้ 00:00–24:00 · สเกลปรับตามข้อมูลจริง</div>
+    <div class="chart-sub">วันนี้ · ซูมช่วงเวลาที่มีข้อมูลอัตโนมัติ</div>
     <canvas class="trend-canvas" id="tempChartCanvas"></canvas>
     <div class="chart-latest" id="tempChartTooltip">แตะที่จุดในกราฟเพื่อดูค่า</div>
     <div class="chart-tap-hint">แตะ/คลิกที่จุดไหนก็ได้เพื่อดูค่าตรงจุดนั้น</div>
@@ -366,8 +366,31 @@
     const dayStart = startOfDayEpoch(nowEpoch);
     const todays = points.filter(p => p.epoch >= dayStart && p.epoch < dayStart + DAY_SEC && getValue(p) != null);
 
+    // ซูมแกนเวลาให้พอดีกับช่วงที่มีข้อมูลจริงของวันนี้ (แทนที่จะยืด 00:00–24:00 เต็มทุกครั้ง)
+    // เพื่อไม่ให้จุดกระจุกตัวกันตอนมีข้อมูลแค่ไม่กี่ชั่วโมง
+    let xMin, xMax;
+    if (todays.length > 0) {
+      const epochs = todays.map(p => p.epoch);
+      xMin = Math.min(...epochs);
+      xMax = Math.max(nowEpoch, Math.max(...epochs));
+      const MIN_SPAN_SEC = 30 * 60; // กันสเกลแคบเกินไปตอนมีข้อมูลกระจุกในไม่กี่นาที
+      if (xMax - xMin < MIN_SPAN_SEC) {
+        const mid = (xMax + xMin) / 2;
+        xMin = mid - MIN_SPAN_SEC / 2;
+        xMax = mid + MIN_SPAN_SEC / 2;
+      } else {
+        const pad = (xMax - xMin) * 0.04;
+        xMin -= pad; xMax += pad;
+      }
+      xMin = Math.max(xMin, dayStart);
+      xMax = Math.min(xMax, dayStart + DAY_SEC);
+    } else {
+      xMin = dayStart; xMax = dayStart + DAY_SEC;
+    }
+    const xSpan = xMax - xMin;
+
     function xOfPoint(p) {
-      const frac = (p.epoch - dayStart) / DAY_SEC;
+      const frac = (p.epoch - xMin) / xSpan;
       return padL + Math.min(Math.max(frac, 0), 1) * plotW;
     }
     chartState[key].canvas = canvas;
@@ -378,14 +401,22 @@
     ctx.fillStyle = '#4A655F'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
     ctx.fillText(formatDateShort(nowEpoch), w - 2, 10);
 
-    // เส้นกริดแนวตั้งทุก 6 ชม.
-    const gridTicks = [
-      { frac: 0, label: '00:00' }, { frac: 0.25, label: '06:00' },
-      { frac: 0.5, label: '12:00' }, { frac: 0.75, label: '18:00' }, { frac: 1, label: '24:00' },
-    ];
+    // เลือกช่วงห่างของเส้นกริดแนวตั้งให้พอดีกับช่วงเวลาที่ซูมอยู่ (ประมาณ 4-6 เส้น)
+    const TICK_STEPS_MIN = [5, 10, 15, 30, 60, 120, 180, 240, 360, 480, 720, 1440];
+    const spanMin = xSpan / 60;
+    let stepMin = TICK_STEPS_MIN[TICK_STEPS_MIN.length - 1];
+    for (const s of TICK_STEPS_MIN) {
+      if (spanMin / s <= 6) { stepMin = s; break; }
+    }
+    const stepSec = stepMin * 60;
+    const gridTicks = [];
+    for (let t = Math.ceil(xMin / stepSec) * stepSec; t <= xMax; t += stepSec) {
+      gridTicks.push({ epoch: t, label: formatClock(t) });
+    }
+
     ctx.strokeStyle = '#EAF2EF'; ctx.lineWidth = 1;
     gridTicks.forEach(t => {
-      const x = padL + t.frac * plotW;
+      const x = xOfPoint({ epoch: t.epoch });
       ctx.beginPath(); ctx.moveTo(x, padTop); ctx.lineTo(x, padTop + plotH); ctx.stroke();
     });
 
@@ -424,8 +455,7 @@
     }
 
     // เส้น "ตอนนี้"
-    const nowFrac = (nowEpoch - dayStart) / DAY_SEC;
-    const nowX = padL + Math.min(Math.max(nowFrac, 0), 1) * plotW;
+    const nowX = xOfPoint({ epoch: nowEpoch });
     ctx.strokeStyle = color; ctx.globalAlpha = 0.35; ctx.setLineDash([2, 2]); ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(nowX, padTop); ctx.lineTo(nowX, padTop + plotH); ctx.stroke();
     ctx.setLineDash([]); ctx.globalAlpha = 1;
@@ -433,7 +463,7 @@
     // แกนเวลาด้านล่าง
     ctx.fillStyle = '#86A099'; ctx.font = '9.5px monospace'; ctx.textAlign = 'center';
     gridTicks.forEach(t => {
-      const x = padL + t.frac * plotW;
+      const x = xOfPoint({ epoch: t.epoch });
       ctx.fillText(t.label, x, h - 5);
     });
   }
