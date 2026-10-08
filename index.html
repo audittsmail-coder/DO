@@ -252,6 +252,7 @@
 
   const GAUGE_CIRCUMFERENCE = 2 * Math.PI * 50; // r=50
   const GAUGE_MAX_DO = 12; // mg/L เต็มวงแหวน
+  const STALE_AFTER_SEC = 300; // ถ้าไม่มีข้อมูลใหม่เกินนี้ (วินาที) ถือว่าอุปกรณ์ไม่ตอบสนอง — ปรับตามความถี่ส่งข้อมูลจริงของอุปกรณ์
 
   // ---------- ฟังก์ชันจัดรูปแบบเวลา ----------
   const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
@@ -290,8 +291,20 @@
         return;
       }
 
-      livePill.className = 'live-pill';
-      livePillText.textContent = 'ออนไลน์';
+      // เช็คว่าอุปกรณ์ยังส่งข้อมูลใหม่อยู่จริงไหม โดยดูจากเวลาของข้อมูลล่าสุด (epoch) ไม่ใช่แค่ว่าเรียก Firebase สำเร็จ
+      // เพราะถ้าอุปกรณ์ไฟดับ/หลุด Firebase ก็ยังตอบค่าค้างเดิมกลับมาได้ปกติ ทำให้ดูเหมือน "ออนไลน์" ทั้งที่ไม่ทำงานแล้ว
+      const nowSec = Math.floor(Date.now() / 1000);
+      const hasEpoch = !!(data.epoch && data.epoch > 0);
+      const secAgo = hasEpoch ? Math.max(0, nowSec - data.epoch) : null;
+      const isStale = hasEpoch && secAgo > STALE_AFTER_SEC;
+
+      if (isStale) {
+        livePill.className = 'live-pill offline';
+        livePillText.textContent = '⚠ อุปกรณ์ไม่ตอบสนอง';
+      } else {
+        livePill.className = 'live-pill';
+        livePillText.textContent = 'ออนไลน์';
+      }
 
       const doVal = data.do ?? 0;
       document.getElementById('doValue').textContent = doVal.toFixed(2);
@@ -303,7 +316,10 @@
       document.getElementById('gaugeFill').style.strokeDashoffset = offset;
 
       const chip = document.getElementById('doStatusChip');
-      if (doVal >= 4.0) {
+      if (isStale) {
+        chip.className = 'status-chip warn';
+        chip.textContent = '⚠ ข้อมูลเก่า (อุปกรณ์ไม่ตอบสนอง)';
+      } else if (doVal >= 4.0) {
         chip.className = 'status-chip';
         chip.textContent = '✓ อยู่ในเกณฑ์ปกติ';
       } else {
@@ -311,12 +327,13 @@
         chip.textContent = '⚠ ต่ำกว่าเกณฑ์ปลอดภัย';
       }
 
-      const nowSec = Math.floor(Date.now() / 1000);
-      if (data.epoch && data.epoch > 0) {
-        document.getElementById('updatedAgo').textContent = formatRelative(Math.max(0, nowSec - data.epoch)) + ' ที่แล้ว';
+      const updatedAgoEl = document.getElementById('updatedAgo');
+      if (hasEpoch) {
+        updatedAgoEl.textContent = formatRelative(secAgo) + ' ที่แล้ว';
       } else {
-        document.getElementById('updatedAgo').textContent = 'ไม่ทราบเวลา';
+        updatedAgoEl.textContent = 'ไม่ทราบเวลา';
       }
+      updatedAgoEl.style.color = isStale ? 'var(--coral)' : '';
     } catch (e) {
       livePill.className = 'live-pill offline';
       livePillText.textContent = 'เชื่อมต่อไม่ได้';
