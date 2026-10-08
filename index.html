@@ -125,6 +125,26 @@
   .footer-note code { font-family: 'JetBrains Mono', monospace; background: var(--teal-mist); padding: 1px 5px; border-radius: 4px; }
 
   .empty-note { text-align: center; padding: 30px 10px; color: var(--muted); font-size: 13px; }
+
+  .weather-now { display: flex; align-items: center; gap: 14px; padding: 2px 0 14px; }
+  .weather-now-icon { font-size: 40px; line-height: 1; flex-shrink: 0; }
+  .weather-now-temp { font-family: 'JetBrains Mono', monospace; font-size: 23px; font-weight: 700; }
+  .weather-now-desc { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+  .weather-now-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  .weather-rain-alert {
+    display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600;
+    color: var(--coral); background: #FBEAE8; border-radius: 10px; padding: 8px 12px; margin-bottom: 12px;
+  }
+  .weather-rain-alert[hidden] { display: none; }
+
+  .weather-hourly { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+  .weather-hour { flex: 0 0 auto; width: 54px; text-align: center; background: var(--bg); border-radius: 12px; padding: 8px 4px; }
+  .weather-hour.now { background: var(--teal-mist); }
+  .weather-hour-time { font-size: 9.5px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .weather-hour-icon { font-size: 19px; margin: 4px 0; }
+  .weather-hour-temp { font-size: 11.5px; font-weight: 700; color: var(--ink); font-family: 'JetBrains Mono', monospace; }
+  .weather-hour-rain { font-size: 9.5px; color: var(--teal-deep); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
 </style>
 </head>
 <body>
@@ -166,6 +186,23 @@
       <div class="mini-label">🧂 ความเค็ม</div>
       <div class="mini-value" id="salinityValue">-- <span>ppt</span></div>
     </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-title">🌤️ สภาพอากาศ</div>
+      <div class="chart-range" id="weatherUpdatedAt">--</div>
+    </div>
+    <div class="weather-now">
+      <div class="weather-now-icon" id="weatherNowIcon">--</div>
+      <div>
+        <div class="weather-now-temp" id="weatherNowTemp">-- °C</div>
+        <div class="weather-now-desc" id="weatherNowDesc">กำลังโหลด...</div>
+        <div class="weather-now-meta" id="weatherNowMeta">ความชื้น -- % · โอกาสฝน -- %</div>
+      </div>
+    </div>
+    <div class="weather-rain-alert" id="weatherRainAlert" hidden></div>
+    <div class="weather-hourly" id="weatherHourly"></div>
   </div>
 
   <div class="chart-card">
@@ -253,6 +290,31 @@
   const GAUGE_CIRCUMFERENCE = 2 * Math.PI * 50; // r=50
   const GAUGE_MAX_DO = 12; // mg/L เต็มวงแหวน
   const STALE_AFTER_SEC = 300; // ถ้าไม่มีข้อมูลใหม่เกินนี้ (วินาที) ถือว่าอุปกรณ์ไม่ตอบสนอง — ปรับตามความถี่ส่งข้อมูลจริงของอุปกรณ์
+
+  // ---------- ตั้งค่าสภาพอากาศ (Open-Meteo — ไม่ต้องใช้ API key) ----------
+  const WEATHER_LAT = 7.9514;
+  const WEATHER_LON = 98.9978;
+  const WEATHER_URL = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LAT}&longitude=${WEATHER_LON}` +
+    `&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,rain,precipitation,weather_code&timezone=Asia%2FBangkok`;
+  const WEATHER_REFRESH_MS = 15 * 60 * 1000; // พยากรณ์อากาศไม่จำเป็นต้องอัปเดตถี่เท่าข้อมูลเซ็นเซอร์
+  const RAIN_ALERT_PROB = 60; // % โอกาสฝนขั้นต่ำที่จะขึ้นเตือน (ฝนแรงกระทบค่า DO/ความเค็มของบ่อได้)
+
+  // รหัสสภาพอากาศแบบ WMO ที่ Open-Meteo ใช้ -> [ไอคอน, คำอธิบายภาษาไทย]
+  const WEATHER_CODE_MAP = {
+    0: ['☀️', 'ท้องฟ้าแจ่มใส'], 1: ['🌤️', 'มีเมฆบางส่วน'], 2: ['⛅', 'เมฆเป็นส่วนมาก'], 3: ['☁️', 'มีเมฆมาก'],
+    45: ['🌫️', 'หมอก'], 48: ['🌫️', 'หมอกน้ำแข็ง'],
+    51: ['🌦️', 'ฝนปรอยเบา'], 53: ['🌦️', 'ฝนปรอยปานกลาง'], 55: ['🌦️', 'ฝนปรอยหนัก'],
+    56: ['🌦️', 'ฝนปรอยเยือกแข็งเบา'], 57: ['🌦️', 'ฝนปรอยเยือกแข็งหนัก'],
+    61: ['🌧️', 'ฝนตกเบา'], 63: ['🌧️', 'ฝนตกปานกลาง'], 65: ['🌧️', 'ฝนตกหนัก'],
+    66: ['🌧️', 'ฝนเยือกแข็งเบา'], 67: ['🌧️', 'ฝนเยือกแข็งหนัก'],
+    71: ['🌨️', 'หิมะตกเบา'], 73: ['🌨️', 'หิมะตกปานกลาง'], 75: ['🌨️', 'หิมะตกหนัก'], 77: ['🌨️', 'เกล็ดหิมะ'],
+    80: ['🌧️', 'ฝนตกเป็นช่วงเบา'], 81: ['🌧️', 'ฝนตกเป็นช่วงปานกลาง'], 82: ['🌧️', 'ฝนตกเป็นช่วงหนักมาก'],
+    85: ['🌨️', 'หิมะตกเป็นช่วงเบา'], 86: ['🌨️', 'หิมะตกเป็นช่วงหนัก'],
+    95: ['⛈️', 'พายุฝนฟ้าคะนอง'], 96: ['⛈️', 'พายุฝนฟ้าคะนอง + ลูกเห็บเบา'], 99: ['⛈️', 'พายุฝนฟ้าคะนอง + ลูกเห็บหนัก'],
+  };
+  function weatherIconDesc(code) {
+    return WEATHER_CODE_MAP[code] || ['🌡️', 'ไม่ทราบสภาพอากาศ'];
+  }
 
   // ---------- ฟังก์ชันจัดรูปแบบเวลา ----------
   const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
@@ -803,6 +865,73 @@
   setupDailyChartTap('do', 'doDailyChartCanvas', 'doDailyChartTooltip', 'mg/L', b => b.do);
   setupDailyChartTap('temp', 'tempDailyChartCanvas', 'tempDailyChartTooltip', '°C', b => b.temp);
 
+  // ---------- สภาพอากาศ (Open-Meteo) ----------
+  async function updateWeather() {
+    const descEl = document.getElementById('weatherNowDesc');
+    const updatedEl = document.getElementById('weatherUpdatedAt');
+    try {
+      const res = await fetch(WEATHER_URL);
+      const data = await res.json();
+      const times = data.hourly.time; // เวลาท้องถิ่น (Asia/Bangkok) แบบ "YYYY-MM-DDTHH:00" ไม่มี offset ต่อท้าย
+      const temps = data.hourly.temperature_2m;
+      const hums = data.hourly.relative_humidity_2m;
+      const rainProbs = data.hourly.precipitation_probability;
+      const codes = data.hourly.weather_code;
+
+      const now = new Date();
+      const nowLocalStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' +
+        String(now.getDate()).padStart(2, '0') + 'T' + String(now.getHours()).padStart(2, '0') + ':00';
+      let nowIdx = times.indexOf(nowLocalStr);
+      if (nowIdx === -1) {
+        nowIdx = 0;
+        for (let i = 0; i < times.length; i++) {
+          if (new Date(times[i]) <= now) nowIdx = i; else break;
+        }
+      }
+
+      const [icon, desc] = weatherIconDesc(codes[nowIdx]);
+      document.getElementById('weatherNowIcon').textContent = icon;
+      document.getElementById('weatherNowTemp').textContent = temps[nowIdx].toFixed(1) + ' °C';
+      descEl.textContent = desc;
+      document.getElementById('weatherNowMeta').textContent =
+        'ความชื้น ' + hums[nowIdx] + '% · โอกาสฝน ' + rainProbs[nowIdx] + '%';
+      updatedEl.textContent = 'อัปเดต ' + formatClock(Math.floor(now.getTime() / 1000));
+
+      // แจ้งเตือนถ้ามีโอกาสฝนตกสูงใน 6 ชม.ข้างหน้า เพราะฝนแรงกระทบค่า DO/ความเค็มของบ่อได้
+      const alertEl = document.getElementById('weatherRainAlert');
+      let rainWarnIdx = -1;
+      for (let i = nowIdx; i < Math.min(nowIdx + 6, times.length); i++) {
+        if (rainProbs[i] >= RAIN_ALERT_PROB) { rainWarnIdx = i; break; }
+      }
+      if (rainWarnIdx !== -1) {
+        const hourLabel = times[rainWarnIdx].slice(11, 16);
+        alertEl.textContent = '⚠ มีโอกาสฝนตก ' + rainProbs[rainWarnIdx] + '% ช่วง ' + hourLabel + ' น. — เฝ้าระวังค่า DO/ความเค็มของบ่อ';
+        alertEl.hidden = false;
+      } else {
+        alertEl.hidden = true;
+      }
+
+      // พยากรณ์รายชั่วโมงถัดไป
+      const hourlyEl = document.getElementById('weatherHourly');
+      let rowsHtml = '';
+      for (let i = nowIdx; i < Math.min(nowIdx + 8, times.length); i++) {
+        const isNow = i === nowIdx;
+        const [hIcon] = weatherIconDesc(codes[i]);
+        const hourLabel = isNow ? 'ตอนนี้' : times[i].slice(11, 16);
+        rowsHtml += '<div class="weather-hour' + (isNow ? ' now' : '') + '">' +
+          '<div class="weather-hour-time">' + hourLabel + '</div>' +
+          '<div class="weather-hour-icon">' + hIcon + '</div>' +
+          '<div class="weather-hour-temp">' + Math.round(temps[i]) + '°</div>' +
+          '<div class="weather-hour-rain">💧' + rainProbs[i] + '%</div>' +
+          '</div>';
+      }
+      hourlyEl.innerHTML = rowsHtml;
+    } catch (e) {
+      descEl.textContent = 'โหลดสภาพอากาศไม่ได้';
+      updatedEl.textContent = 'โหลดไม่สำเร็จ';
+    }
+  }
+
   function refreshAll() {
     updateLatest();
     updateHistory();
@@ -810,6 +939,8 @@
 
   refreshAll();
   setInterval(refreshAll, 30000);
+  updateWeather();
+  setInterval(updateWeather, WEATHER_REFRESH_MS);
   window.addEventListener('resize', redrawFromCache);
 
   // ---------- ล้างข้อมูลย้อนหลัง (DO / อุณหภูมิ / ทั้งสอง) ----------
