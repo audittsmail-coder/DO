@@ -1057,7 +1057,7 @@
               '</span>' +
               '<span class="history-row-chevron">›</span>' +
               '</button>' +
-            '<button class="history-row-delete" data-delete-day="' + d.dayStart + '" title="ลบข้อมูลวันนี้">🗑️</button>' +
+            '<button class="history-row-delete" data-delete-day="' + d.dayStart + '" title="ลบข้อมูลวันที่ ' + formatDateShort(d.dayStart) + '">🗑️</button>' +
             '</div>';
         }).join('')
       : '<div class="history-empty">ยังไม่มีข้อมูล</div>';
