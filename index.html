@@ -104,6 +104,24 @@
   .recent-stat-value { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: var(--ink); margin-top: 2px; }
   .recent-stat-time { font-size: 10px; color: var(--muted); margin-top: 1px; font-family: 'JetBrains Mono', monospace; }
 
+  .back-btn {
+    font-family: 'Noto Sans Thai', sans-serif; font-size: 11.5px; font-weight: 600; color: var(--teal-deep);
+    background: var(--teal-mist); border: none; border-radius: 999px; padding: 5px 12px; cursor: pointer;
+  }
+  .history-list { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow-y: auto; }
+  .history-list[hidden] { display: none; }
+  .history-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 10px; background: var(--bg); cursor: pointer; border: none; width: 100%;
+    text-align: left; font-family: 'Noto Sans Thai', sans-serif; font-size: 12.5px; color: var(--ink);
+  }
+  .history-row:hover { background: var(--teal-mist); }
+  .history-row-label { font-weight: 700; color: var(--ink-soft); font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+  .history-row-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 10.5px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .history-row-stats b { color: var(--ink); font-weight: 700; }
+  .history-row-chevron { color: var(--muted); font-size: 15px; flex-shrink: 0; }
+  .history-empty { text-align: center; color: var(--muted); font-size: 12.5px; padding: 24px 10px; }
+
   .clear-options { display: flex; flex-wrap: wrap; gap: 14px 20px; margin: 10px 0 14px; }
   .clear-check { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-soft); cursor: pointer; }
   .clear-check input { width: 16px; height: 16px; accent-color: var(--coral); cursor: pointer; }
@@ -268,6 +286,28 @@
     <div class="daily-list" id="tempDailyList"></div>
   </div>
 
+  <div class="section-label">📊 ประวัติย้อนหลัง</div>
+
+  <div class="chart-card full-span">
+    <div class="chart-header">
+      <div class="chart-title" id="historyTitle">ประวัติย้อนหลัง</div>
+      <button class="back-btn" id="historyBackBtn" hidden>← กลับ</button>
+    </div>
+    <div class="chart-sub">เก็บค่าที่วัดทุกวัน — ถ้ามีหลายเดือนจะรวบเป็นรายเดือนก่อน กดดูแล้วขยายเป็นรายวัน กดวันไหนก็เห็นกราฟของวันนั้น</div>
+
+    <div id="historyMonthsPanel" class="history-list"></div>
+    <div id="historyDaysPanel" class="history-list" hidden></div>
+
+    <div id="historyDayDetailPanel" hidden>
+      <div class="chart-sub" style="margin-top:4px;">DO (mg/L)</div>
+      <canvas class="trend-canvas" id="historyDayDoCanvas"></canvas>
+      <div class="chart-latest" id="historyDayDoTooltip">แตะที่จุดในกราฟเพื่อดูค่า</div>
+      <div class="chart-sub" style="margin-top:14px;">อุณหภูมิ (°C)</div>
+      <canvas class="trend-canvas" id="historyDayTempCanvas"></canvas>
+      <div class="chart-latest" id="historyDayTempTooltip">แตะที่จุดในกราฟเพื่อดูค่า</div>
+    </div>
+  </div>
+
   <div class="section-label">🗑️ จัดการข้อมูล</div>
 
   <div class="chart-card full-span">
@@ -427,7 +467,8 @@
     return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
   }
 
-  function drawTrendChart(key, canvasId, points, getValue, color, highlightEpoch) {
+  // targetDayStart: ปกติไม่ต้องใส่ (ใช้ "วันนี้" โดยอัตโนมัติ) — ใส่ได้เพื่อวาดกราฟของวันอื่นในอดีต (ใช้โดยหน้าประวัติย้อนหลัง)
+  function drawTrendChart(key, canvasId, points, getValue, color, highlightEpoch, targetDayStart) {
     const canvas = document.getElementById(canvasId);
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
@@ -444,16 +485,18 @@
     const DAY_SEC = 24 * 3600;
 
     const nowEpoch = Math.floor(Date.now() / 1000);
-    const dayStart = startOfDayEpoch(nowEpoch);
+    const todayStart = startOfDayEpoch(nowEpoch);
+    const dayStart = targetDayStart != null ? targetDayStart : todayStart;
+    const isToday = dayStart === todayStart;
     const todays = points.filter(p => p.epoch >= dayStart && p.epoch < dayStart + DAY_SEC && getValue(p) != null);
 
-    // ซูมแกนเวลาให้พอดีกับช่วงที่มีข้อมูลจริงของวันนี้ (แทนที่จะยืด 00:00–24:00 เต็มทุกครั้ง)
+    // ซูมแกนเวลาให้พอดีกับช่วงที่มีข้อมูลจริงของวันนั้น (แทนที่จะยืด 00:00–24:00 เต็มทุกครั้ง)
     // เพื่อไม่ให้จุดกระจุกตัวกันตอนมีข้อมูลแค่ไม่กี่ชั่วโมง
     let xMin, xMax;
     if (todays.length > 0) {
       const epochs = todays.map(p => p.epoch);
       xMin = Math.min(...epochs);
-      xMax = Math.max(nowEpoch, Math.max(...epochs));
+      xMax = isToday ? Math.max(nowEpoch, Math.max(...epochs)) : Math.max(...epochs);
       const MIN_SPAN_SEC = 30 * 60; // กันสเกลแคบเกินไปตอนมีข้อมูลกระจุกในไม่กี่นาที
       if (xMax - xMin < MIN_SPAN_SEC) {
         const mid = (xMax + xMin) / 2;
@@ -474,16 +517,18 @@
       const frac = (p.epoch - xMin) / xSpan;
       return padL + Math.min(Math.max(frac, 0), 1) * plotW;
     }
+    if (!chartState[key]) chartState[key] = { canvas: null, points: [], xOfPoint: null };
     chartState[key].canvas = canvas;
     chartState[key].points = todays;
     chartState[key].xOfPoint = xOfPoint;
     chartState[key].rawPoints = points;
     chartState[key].getValue = getValue;
     chartState[key].color = color;
+    chartState[key].targetDayStart = targetDayStart;
 
     // ป้ายวันที่มุมขวาบน
     ctx.fillStyle = '#4A655F'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
-    ctx.fillText(formatDateShort(nowEpoch), w - 2, 10);
+    ctx.fillText(formatDateShort(dayStart), w - 2, 10);
 
     // เลือกช่วงห่างของเส้นกริดแนวตั้งให้พอดีกับช่วงเวลาที่ซูมอยู่ (ประมาณ 4-6 เส้น)
     const TICK_STEPS_MIN = [5, 10, 15, 30, 60, 120, 180, 240, 360, 480, 720, 1440];
@@ -506,7 +551,7 @@
 
     if (todays.length < 1) {
       ctx.fillStyle = '#86A099'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('ยังไม่มีข้อมูลของวันนี้', w / 2, padTop + plotH / 2);
+      ctx.fillText(isToday ? 'ยังไม่มีข้อมูลของวันนี้' : 'ไม่มีข้อมูลของวันนั้น', w / 2, padTop + plotH / 2);
     } else {
       const values = todays.map(getValue);
       let vMin = Math.min(...values), vMax = Math.max(...values);
@@ -566,11 +611,13 @@
       ctx.fillText(vMin.toFixed(1), 2, padTop + plotH - 2);
     }
 
-    // เส้น "ตอนนี้"
-    const nowX = xOfPoint({ epoch: nowEpoch });
-    ctx.strokeStyle = color; ctx.globalAlpha = 0.35; ctx.setLineDash([2, 2]); ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(nowX, padTop); ctx.lineTo(nowX, padTop + plotH); ctx.stroke();
-    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    // เส้น "ตอนนี้" — แสดงเฉพาะตอนดูกราฟของวันนี้ เพราะวันในอดีตไม่มี "ตอนนี้" ให้ชี้
+    if (isToday) {
+      const nowX = xOfPoint({ epoch: nowEpoch });
+      ctx.strokeStyle = color; ctx.globalAlpha = 0.35; ctx.setLineDash([2, 2]); ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(nowX, padTop); ctx.lineTo(nowX, padTop + plotH); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
 
     // แกนเวลาด้านล่าง
     ctx.fillStyle = '#86A099'; ctx.font = '9.5px monospace'; ctx.textAlign = 'center';
@@ -592,15 +639,15 @@
         const diff = Math.abs(state.xOfPoint(p) - tapX);
         if (diff < bestDiff) { bestDiff = diff; closest = p; }
       });
-      const value = key === 'do' ? closest.do : closest.temp;
+      const value = state.getValue(closest);
       document.getElementById(tooltipId).innerHTML =
         '<b>' + value.toFixed(2) + ' ' + unit + '</b> — ' + formatClock(closest.epoch) + ' น. · ' + formatDateShort(closest.epoch);
-      drawTrendChart(key, canvasId, state.rawPoints, state.getValue, state.color, closest.epoch);
+      drawTrendChart(key, canvasId, state.rawPoints, state.getValue, state.color, closest.epoch, state.targetDayStart);
     };
     const resetHighlight = () => {
       const state = chartState[key];
       if (!state.rawPoints) return;
-      drawTrendChart(key, canvasId, state.rawPoints, state.getValue, state.color, null);
+      drawTrendChart(key, canvasId, state.rawPoints, state.getValue, state.color, null, state.targetDayStart);
     };
     canvas.addEventListener('click', handler);
     canvas.addEventListener('mousemove', handler);
@@ -649,6 +696,7 @@
     drawTrendChart('do', 'doChartCanvas', historyPoints, p => p.do, '#0B8A7A');
     drawTrendChart('temp', 'tempChartCanvas', historyPoints, p => p.temp, '#E08B2C');
     renderRecentReadings();
+    renderHistoryExplorer();
   }
 
   setupChartTap('do', 'doChartCanvas', 'doChartTooltip', 'mg/L');
@@ -873,6 +921,161 @@
     renderRecentList('doDailyList', historyPoints, p => p.do, 'mg/L');
     renderRecentList('tempDailyList', historyPoints, p => p.temp, '°C');
   }
+
+  // ---------- ประวัติย้อนหลัง: เดือน -> วัน -> กราฟรายละเอียดของวันนั้น ----------
+  function statsOf(arr) {
+    if (!arr.length) return null;
+    const sum = arr.reduce((a, b) => a + b, 0);
+    return { avg: sum / arr.length, min: Math.min(...arr), max: Math.max(...arr), count: arr.length };
+  }
+  function startOfMonthEpoch(epochSec) {
+    const d = new Date(epochSec * 1000);
+    d.setDate(1); d.setHours(0, 0, 0, 0);
+    return Math.floor(d.getTime() / 1000);
+  }
+  const TH_MONTHS_FULL = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  function formatMonthLabel(monthStartEpoch) {
+    const d = new Date(monthStartEpoch * 1000);
+    return TH_MONTHS_FULL[d.getMonth()] + ' ' + d.getFullYear();
+  }
+
+  function aggregateByMonth(points) {
+    const map = new Map();
+    points.forEach(p => {
+      const monthStart = startOfMonthEpoch(p.epoch);
+      if (!map.has(monthStart)) map.set(monthStart, { monthStart, do: [], temp: [], dayStarts: new Set() });
+      const b = map.get(monthStart);
+      if (p.do != null) b.do.push(p.do);
+      if (p.temp != null) b.temp.push(p.temp);
+      b.dayStarts.add(startOfDayEpoch(p.epoch));
+    });
+    return Array.from(map.values()).sort((a, b) => a.monthStart - b.monthStart).map(b => ({
+      monthStart: b.monthStart, do: statsOf(b.do), temp: statsOf(b.temp), dayCount: b.dayStarts.size
+    }));
+  }
+
+  // monthStart = null -> รวมทุกวันที่มีข้อมูล ไม่กรองเฉพาะเดือนใดเดือนหนึ่ง
+  function aggregateByDay(points, monthStart) {
+    const map = new Map();
+    points.forEach(p => {
+      if (monthStart != null && startOfMonthEpoch(p.epoch) !== monthStart) return;
+      const dayStart = startOfDayEpoch(p.epoch);
+      if (!map.has(dayStart)) map.set(dayStart, { dayStart, do: [], temp: [] });
+      const b = map.get(dayStart);
+      if (p.do != null) b.do.push(p.do);
+      if (p.temp != null) b.temp.push(p.temp);
+    });
+    return Array.from(map.values()).sort((a, b) => a.dayStart - b.dayStart).map(b => ({
+      dayStart: b.dayStart, do: statsOf(b.do), temp: statsOf(b.temp)
+    }));
+  }
+
+  const MONTH_ROLLUP_DAY_THRESHOLD = 31; // ถ้าจำนวนวันที่มีข้อมูลมากกว่านี้ ให้เริ่มที่หน้ารวมรายเดือนก่อนแทนที่จะโชว์รายวันยาวๆ
+  // mode: 'top' (หน้าแรกสุด — จะกลายเป็นเดือนหรือวันก็ได้ขึ้นกับว่าข้อมูลมากพอจะรวบเป็นเดือนหรือยัง) | 'days' | 'day-detail'
+  const historyView = { mode: 'top', monthStart: null, dayStart: null };
+
+  function renderHistoryExplorer() {
+    const allDays = aggregateByDay(historyPoints, null);
+    const useMonthRollup = allDays.length > MONTH_ROLLUP_DAY_THRESHOLD;
+
+    const titleEl = document.getElementById('historyTitle');
+    const backBtn = document.getElementById('historyBackBtn');
+    const monthsPanel = document.getElementById('historyMonthsPanel');
+    const daysPanel = document.getElementById('historyDaysPanel');
+    const dayDetailPanel = document.getElementById('historyDayDetailPanel');
+
+    monthsPanel.hidden = true; daysPanel.hidden = true; dayDetailPanel.hidden = true;
+    backBtn.hidden = true;
+
+    if (historyView.mode === 'day-detail') {
+      dayDetailPanel.hidden = false;
+      backBtn.hidden = false;
+      titleEl.textContent = '📊 ' + formatDateShort(historyView.dayStart);
+      drawTrendChart('historyDay-do', 'historyDayDoCanvas', historyPoints, p => p.do, '#0B8A7A', null, historyView.dayStart);
+      drawTrendChart('historyDay-temp', 'historyDayTempCanvas', historyPoints, p => p.temp, '#E08B2C', null, historyView.dayStart);
+      return;
+    }
+
+    // ถ้าดรีลดาวน์เข้ามาจากหน้าเดือนไว้ แต่ข้อมูลหดจนไม่ต้องรวบเป็นเดือนแล้ว ให้เด้งกลับไปหน้าแรกสุด
+    if (historyView.mode === 'days' && !useMonthRollup) {
+      historyView.mode = 'top';
+      historyView.monthStart = null;
+    }
+
+    const showMonths = historyView.mode === 'top' && useMonthRollup;
+
+    if (showMonths) {
+      titleEl.textContent = '📊 ประวัติย้อนหลัง · เลือกเดือน';
+      monthsPanel.hidden = false;
+      const months = aggregateByMonth(historyPoints);
+      monthsPanel.innerHTML = months.length
+        ? months.slice().reverse().map(m => {
+            const doText = m.do ? m.do.avg.toFixed(2) + ' mg/L' : '—';
+            const tempText = m.temp ? m.temp.avg.toFixed(1) + ' °C' : '—';
+            return '<button class="history-row" data-month="' + m.monthStart + '">' +
+              '<span class="history-row-label">' + formatMonthLabel(m.monthStart) + '</span>' +
+              '<span class="history-row-stats">' +
+                '<span>DO <b>' + doText + '</b></span>' +
+                '<span>อุณหภูมิ <b>' + tempText + '</b></span>' +
+                '<span>' + m.dayCount + ' วัน</span>' +
+              '</span>' +
+              '<span class="history-row-chevron">›</span>' +
+              '</button>';
+          }).join('')
+        : '<div class="history-empty">ยังไม่มีข้อมูล</div>';
+      return;
+    }
+
+    // หน้ารายวัน — ไม่ว่าจะเป็นหน้าแรกสุด (ข้อมูลยังไม่ถึงขั้นรวบเป็นเดือน) หรือดรีลดาวน์มาจากเดือนที่เลือกไว้
+    daysPanel.hidden = false;
+    const inMonthDrilldown = useMonthRollup && historyView.monthStart != null;
+    backBtn.hidden = !inMonthDrilldown;
+    titleEl.textContent = inMonthDrilldown ? '📊 ' + formatMonthLabel(historyView.monthStart) : '📊 ประวัติย้อนหลัง · เลือกวัน';
+    const days = aggregateByDay(historyPoints, inMonthDrilldown ? historyView.monthStart : null);
+    const todayStart = startOfDayEpoch(Math.floor(Date.now() / 1000));
+    daysPanel.innerHTML = days.length
+      ? days.slice().reverse().map(d => {
+          const isToday = d.dayStart === todayStart;
+          const doText = d.do ? d.do.avg.toFixed(2) + ' mg/L' : '—';
+          const tempText = d.temp ? d.temp.avg.toFixed(1) + ' °C' : '—';
+          return '<button class="history-row" data-day="' + d.dayStart + '">' +
+            '<span class="history-row-label">' + formatDateShort(d.dayStart) + (isToday ? ' (วันนี้)' : '') + '</span>' +
+            '<span class="history-row-stats">' +
+              '<span>DO <b>' + doText + '</b></span>' +
+              '<span>อุณหภูมิ <b>' + tempText + '</b></span>' +
+            '</span>' +
+            '<span class="history-row-chevron">›</span>' +
+            '</button>';
+        }).join('')
+      : '<div class="history-empty">ยังไม่มีข้อมูล</div>';
+  }
+
+  document.getElementById('historyMonthsPanel').addEventListener('click', (e) => {
+    const row = e.target.closest('.history-row');
+    if (!row) return;
+    historyView.mode = 'days';
+    historyView.monthStart = parseInt(row.dataset.month, 10);
+    renderHistoryExplorer();
+  });
+  document.getElementById('historyDaysPanel').addEventListener('click', (e) => {
+    const row = e.target.closest('.history-row');
+    if (!row) return;
+    historyView.mode = 'day-detail';
+    historyView.dayStart = parseInt(row.dataset.day, 10);
+    renderHistoryExplorer();
+  });
+  document.getElementById('historyBackBtn').addEventListener('click', () => {
+    if (historyView.mode === 'day-detail') {
+      historyView.mode = 'days';
+    } else if (historyView.mode === 'days') {
+      historyView.mode = 'top';
+      historyView.monthStart = null;
+    }
+    renderHistoryExplorer();
+  });
+  setupChartTap('historyDay-do', 'historyDayDoCanvas', 'historyDayDoTooltip', 'mg/L');
+  setupChartTap('historyDay-temp', 'historyDayTempCanvas', 'historyDayTempTooltip', '°C');
 
   setupRecentChartTap('do', 'doDailyChartCanvas', 'doDailyChartTooltip', 'mg/L');
   setupRecentChartTap('temp', 'tempDailyChartCanvas', 'tempDailyChartTooltip', '°C');
