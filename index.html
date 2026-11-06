@@ -87,14 +87,6 @@
 
   .section-label { font-size: 12.5px; font-weight: 700; color: var(--ink-soft); margin: 22px 2px 10px; display: flex; align-items: center; gap: 6px; }
 
-  .range-tabs { display: flex; gap: 4px; }
-  .range-tab {
-    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
-    border: 1px solid var(--card-border); background: var(--bg); color: var(--muted);
-    padding: 3px 9px; border-radius: 999px; cursor: pointer;
-  }
-  .range-tab.active { background: var(--teal-deep); border-color: var(--teal-deep); color: #fff; }
-
   .daily-list { margin-top: 12px; max-height: 220px; overflow-y: auto; border-top: 1px solid var(--card-border); }
   .daily-list-row {
     display: flex; justify-content: space-between; align-items: center; gap: 8px;
@@ -105,8 +97,6 @@
   .daily-list-date { color: var(--ink-soft); font-family: 'JetBrains Mono', monospace; font-weight: 600; white-space: nowrap; }
   .daily-list-stats { display: flex; align-items: baseline; gap: 6px; }
   .daily-list-avg { font-family: 'JetBrains Mono', monospace; color: var(--ink); font-weight: 700; }
-  .daily-list-avg.empty { color: var(--muted); font-weight: 500; font-family: 'Noto Sans Thai', sans-serif; }
-  .daily-list-range { color: var(--muted); font-size: 10px; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
 
   .clear-options { display: flex; flex-wrap: wrap; gap: 14px 20px; margin: 10px 0 14px; }
   .clear-check { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-soft); cursor: pointer; }
@@ -246,37 +236,27 @@
     <div class="chart-tap-hint">แตะ/คลิกที่จุดไหนก็ได้เพื่อดูค่าตรงจุดนั้น</div>
   </div>
 
-  <div class="section-label">📅 ประวัติย้อนหลังรายวัน</div>
+  <div class="section-label">🕑 ค่าที่วัดล่าสุด</div>
 
   <div class="chart-card">
     <div class="chart-header">
-      <div class="chart-title">DO เฉลี่ยรายวัน (mg/L)</div>
-      <div class="range-tabs" id="doDailyRangeTabs">
-        <button class="range-tab" data-days="7">7 วัน</button>
-        <button class="range-tab active" data-days="14">14 วัน</button>
-        <button class="range-tab" data-days="30">30 วัน</button>
-      </div>
+      <div class="chart-title">DO ล่าสุด (mg/L)</div>
     </div>
-    <div class="chart-sub">เส้น = ค่าเฉลี่ยรายวัน · แถบแรเงา = ช่วงต่ำสุด–สูงสุดของวันนั้น</div>
+    <div class="chart-sub">ค่าที่วัดล่าสุด 10 ครั้ง เรียงตามเวลา</div>
     <canvas class="trend-canvas" id="doDailyChartCanvas"></canvas>
-    <div class="chart-latest" id="doDailyChartTooltip">แตะจุด/แท่งในกราฟเพื่อดูค่าของวันนั้น</div>
-    <div class="chart-tap-hint">แตะ/คลิกที่วันไหนก็ได้เพื่อดูค่าเฉลี่ย ต่ำสุด สูงสุด</div>
+    <div class="chart-latest" id="doDailyChartTooltip">แตะที่จุดในกราฟเพื่อดูค่า</div>
+    <div class="chart-tap-hint">แตะ/คลิกที่จุดไหนก็ได้เพื่อดูค่าตรงจุดนั้น</div>
     <div class="daily-list" id="doDailyList"></div>
   </div>
 
   <div class="chart-card">
     <div class="chart-header">
-      <div class="chart-title">อุณหภูมิเฉลี่ยรายวัน (°C)</div>
-      <div class="range-tabs" id="tempDailyRangeTabs">
-        <button class="range-tab" data-days="7">7 วัน</button>
-        <button class="range-tab active" data-days="14">14 วัน</button>
-        <button class="range-tab" data-days="30">30 วัน</button>
-      </div>
+      <div class="chart-title">อุณหภูมิล่าสุด (°C)</div>
     </div>
-    <div class="chart-sub">เส้น = ค่าเฉลี่ยรายวัน · แถบแรเงา = ช่วงต่ำสุด–สูงสุดของวันนั้น</div>
+    <div class="chart-sub">ค่าที่วัดล่าสุด 10 ครั้ง เรียงตามเวลา</div>
     <canvas class="trend-canvas" id="tempDailyChartCanvas"></canvas>
-    <div class="chart-latest" id="tempDailyChartTooltip">แตะจุด/แท่งในกราฟเพื่อดูค่าของวันนั้น</div>
-    <div class="chart-tap-hint">แตะ/คลิกที่วันไหนก็ได้เพื่อดูค่าเฉลี่ย ต่ำสุด สูงสุด</div>
+    <div class="chart-latest" id="tempDailyChartTooltip">แตะที่จุดในกราฟเพื่อดูค่า</div>
+    <div class="chart-tap-hint">แตะ/คลิกที่จุดไหนก็ได้เพื่อดูค่าตรงจุดนั้น</div>
     <div class="daily-list" id="tempDailyList"></div>
   </div>
 
@@ -660,45 +640,24 @@
   function redrawFromCache() {
     drawTrendChart('do', 'doChartCanvas', historyPoints, p => p.do, '#0B8A7A');
     drawTrendChart('temp', 'tempChartCanvas', historyPoints, p => p.temp, '#E08B2C');
-    renderDailyCharts();
+    renderRecentReadings();
   }
 
   setupChartTap('do', 'doChartCanvas', 'doChartTooltip', 'mg/L');
   setupChartTap('temp', 'tempChartCanvas', 'tempChartTooltip', '°C');
 
-  // ---------- กราฟประวัติย้อนหลังรายวัน (ค่าเฉลี่ย + ช่วงต่ำสุด–สูงสุด ต่อวัน) ----------
-  const dailyChartState = {
-    do: { canvas: null, bins: [], xOfBin: null },
-    temp: { canvas: null, bins: [], xOfBin: null }
+  // ---------- กราฟค่าที่วัดล่าสุด N ครั้ง (ไม่ใช่ค่าเฉลี่ยรายวัน เพราะข้อมูลย้อนหลังหลายวันอาจยังมีไม่พอ) ----------
+  const RECENT_READINGS_COUNT = 10;
+  const recentChartState = {
+    do: { canvas: null, points: [], xOfPoint: null, rawPoints: null, getValue: null, color: null },
+    temp: { canvas: null, points: [], xOfPoint: null, rawPoints: null, getValue: null, color: null }
   };
-  const dailyRangeDays = { do: 14, temp: 14 };
 
-  function statsOf(arr) {
-    if (!arr.length) return null;
-    const sum = arr.reduce((a, b) => a + b, 0);
-    return { avg: sum / arr.length, min: Math.min(...arr), max: Math.max(...arr), count: arr.length };
+  function getRecentReadings(points, getValue, count) {
+    return points.filter(p => getValue(p) != null).slice(-count);
   }
 
-  // แบ่งข้อมูลทั้งหมดเป็นช่อง "รายวัน" ย้อนหลัง N วันนับจากวันนี้ แล้วสรุปค่าเฉลี่ย/ต่ำสุด/สูงสุดของแต่ละวัน
-  function aggregateDaily(points, days) {
-    const DAY_SEC = 24 * 3600;
-    const todayStart = startOfDayEpoch(Math.floor(Date.now() / 1000));
-    const firstDayStart = todayStart - (days - 1) * DAY_SEC;
-    const bins = [];
-    for (let i = 0; i < days; i++) {
-      bins.push({ dayStart: firstDayStart + i * DAY_SEC, do: [], temp: [] });
-    }
-    points.forEach(p => {
-      const idx = Math.floor((p.epoch - firstDayStart) / DAY_SEC);
-      if (idx >= 0 && idx < bins.length) {
-        if (p.do != null) bins[idx].do.push(p.do);
-        if (p.temp != null) bins[idx].temp.push(p.temp);
-      }
-    });
-    return bins.map(b => ({ dayStart: b.dayStart, do: statsOf(b.do), temp: statsOf(b.temp) }));
-  }
-
-  function drawDailyChart(key, canvasId, bins, getStats, color) {
+  function drawRecentChart(key, canvasId, points, getValue, color, highlightEpoch) {
     const canvas = document.getElementById(canvasId);
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
@@ -709,183 +668,181 @@
     const w = rect.width, h = rect.height;
     ctx.clearRect(0, 0, w, h);
 
-    const padL = 34, padR = 8, padTop = 14, padBottom = 20;
+    const padL = 34, padR = 8, padTop = 22, padBottom = 28;
     const plotH = h - padTop - padBottom;
     const plotW = w - padL - padR;
-    const n = bins.length;
-    const slot = plotW / n;
 
-    function xOfBin(i) { return padL + slot * (i + 0.5); }
-    dailyChartState[key].canvas = canvas;
-    dailyChartState[key].bins = bins;
-    dailyChartState[key].xOfBin = xOfBin;
+    const recent = getRecentReadings(points, getValue, RECENT_READINGS_COUNT);
+    const n = recent.length;
+    recentChartState[key].canvas = canvas;
+    recentChartState[key].points = recent;
+    recentChartState[key].rawPoints = points;
+    recentChartState[key].getValue = getValue;
+    recentChartState[key].color = color;
 
-    const withData = bins.map((b, i) => ({ b, i, s: getStats(b) })).filter(x => x.s);
-
-    if (withData.length < 1) {
+    if (n < 1) {
+      recentChartState[key].xOfPoint = null;
       ctx.fillStyle = '#86A099'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('ยังไม่มีข้อมูลย้อนหลัง', w / 2, padTop + plotH / 2);
-    } else {
-      let vMin = Infinity, vMax = -Infinity;
-      withData.forEach(({ s }) => {
-        vMin = Math.min(vMin, s.min);
-        vMax = Math.max(vMax, s.max);
-      });
-      if (vMax - vMin < 0.5) {
-        const mid = (vMax + vMin) / 2;
-        vMin = mid - 0.5; vMax = mid + 0.5;
-      }
-      const margin = (vMax - vMin) * 0.15;
-      vMin = Math.max(0, vMin - margin);
-      vMax = vMax + margin;
-
-      function yOf(value) { return padTop + plotH - ((value - vMin) / (vMax - vMin)) * plotH; }
-
-      ctx.strokeStyle = '#EAF2EF'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(padL, padTop); ctx.lineTo(padL + plotW, padTop); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(padL, padTop + plotH); ctx.lineTo(padL + plotW, padTop + plotH); ctx.stroke();
-
-      // แบ่งเป็นช่วงต่อเนื่อง คั่นด้วยวันที่ไม่มีข้อมูล กันเส้น/แถบลากข้ามวันที่ขาดข้อมูลแบบชี้นำผิด
-      const segments = [];
-      let current = [];
-      withData.forEach((item, idx) => {
-        const prev = withData[idx - 1];
-        if (prev && item.i - prev.i > 1 && current.length) {
-          segments.push(current);
-          current = [];
-        }
-        current.push(item);
-      });
-      if (current.length) segments.push(current);
-
-      segments.forEach(seg => {
-        if (seg.length === 1) {
-          // วันเดี่ยวที่ไม่มีวันข้างเคียงมีข้อมูล: แสดงเป็นเส้นขีดช่วงต่ำ–สูง + จุดเฉลี่ย
-          const { i, s } = seg[0];
-          const x = xOfBin(i);
-          ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap = 'round';
-          ctx.beginPath(); ctx.moveTo(x, yOf(s.min)); ctx.lineTo(x, yOf(s.max)); ctx.stroke();
-          ctx.fillStyle = color;
-          ctx.beginPath(); ctx.arc(x, yOf(s.avg), 5, 0, Math.PI * 2); ctx.fill();
-          ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5; ctx.stroke();
-          return;
-        }
-
-        // แถบแรเงาช่วงต่ำสุด–สูงสุด (ไล่ผ่านค่าสูงสุดไปทางขวา แล้ววกกลับผ่านค่าต่ำสุดมาทางซ้าย)
-        ctx.beginPath();
-        seg.forEach((item, idx) => {
-          const x = xOfBin(item.i), y = yOf(item.s.max);
-          if (idx === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        });
-        for (let idx = seg.length - 1; idx >= 0; idx--) {
-          ctx.lineTo(xOfBin(seg[idx].i), yOf(seg[idx].s.min));
-        }
-        ctx.closePath();
-        ctx.fillStyle = hexToRgba(color, 0.12);
-        ctx.fill();
-
-        // เส้นค่าเฉลี่ยรายวัน
-        ctx.beginPath();
-        seg.forEach((item, idx) => {
-          const x = xOfBin(item.i), y = yOf(item.s.avg);
-          if (idx === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        });
-        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-        ctx.stroke();
-      });
-
-      // จุดเน้นวันล่าสุดที่มีข้อมูล
-      const lastItem = withData[withData.length - 1];
-      const lx = xOfBin(lastItem.i), ly = yOf(lastItem.s.avg);
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(lx, ly, 5, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2; ctx.stroke();
-
-      ctx.fillStyle = '#86A099'; ctx.font = '9.5px monospace'; ctx.textAlign = 'left';
-      ctx.fillText(vMax.toFixed(1), 2, padTop + 8);
-      ctx.fillText(vMin.toFixed(1), 2, padTop + plotH - 2);
+      ctx.fillText('ยังไม่มีข้อมูล', w / 2, padTop + plotH / 2);
+      return;
     }
 
-    // แกนวันที่ด้านล่าง แสดงป้ายเฉพาะบางวันถ้ามีจุดเยอะ กันตัวหนังสือทับกัน
-    const labelStep = Math.max(1, Math.ceil(n / (n <= 7 ? 7 : 6)));
-    ctx.fillStyle = '#86A099'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
-    bins.forEach((b, i) => {
-      if (i % labelStep === 0 || i === n - 1) {
-        ctx.fillText(formatDateShort(b.dayStart), xOfBin(i), h - 5);
-      }
+    const slot = n > 1 ? plotW / (n - 1) : 0;
+    function xOfIndex(i) { return n > 1 ? padL + slot * i : padL + plotW / 2; }
+    function xOfPoint(p) {
+      const idx = recent.indexOf(p);
+      return xOfIndex(idx < 0 ? n - 1 : idx);
+    }
+    recentChartState[key].xOfPoint = xOfPoint;
+
+    const values = recent.map(getValue);
+    let vMin = Math.min(...values), vMax = Math.max(...values);
+    if (vMax - vMin < 0.5) {
+      const mid = (vMax + vMin) / 2;
+      vMin = mid - 0.5; vMax = mid + 0.5;
+    }
+    const margin = (vMax - vMin) * 0.15;
+    vMin = Math.max(0, vMin - margin);
+    vMax = vMax + margin;
+    function yOf(value) { return padTop + plotH - ((value - vMin) / (vMax - vMin)) * plotH; }
+
+    ctx.strokeStyle = '#EAF2EF'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, padTop); ctx.lineTo(padL + plotW, padTop); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(padL, padTop + plotH); ctx.lineTo(padL + plotW, padTop + plotH); ctx.stroke();
+
+    if (n > 1) {
+      // พื้นที่แรเงาใต้เส้น
+      ctx.beginPath();
+      recent.forEach((p, i) => {
+        const x = xOfIndex(i), y = yOf(getValue(p));
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.lineTo(xOfIndex(n - 1), padTop + plotH);
+      ctx.lineTo(xOfIndex(0), padTop + plotH);
+      ctx.closePath();
+      ctx.fillStyle = hexToRgba(color, 0.1);
+      ctx.fill();
+
+      // เส้นเชื่อมค่าที่วัดได้
+      ctx.beginPath();
+      recent.forEach((p, i) => {
+        const x = xOfIndex(i), y = yOf(getValue(p));
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+
+    // จุดของแต่ละค่าที่วัดได้
+    recent.forEach((p, i) => {
+      const x = xOfIndex(i), y = yOf(getValue(p));
+      const isLast = i === n - 1;
+      ctx.globalAlpha = isLast ? 1 : 0.6;
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x, y, isLast ? 5 : 3, 0, Math.PI * 2); ctx.fill();
+      if (isLast) { ctx.globalAlpha = 1; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5; ctx.stroke(); }
     });
+    ctx.globalAlpha = 1;
+
+    // ไฮไลต์จุดที่แตะ/ชี้อยู่ (ถ้ามี) พร้อมเส้นไกด์แนวตั้งบางๆ
+    if (highlightEpoch != null) {
+      let bestIdx = 0, bestDiff = Infinity;
+      recent.forEach((p, i) => {
+        const diff = Math.abs(p.epoch - highlightEpoch);
+        if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
+      });
+      const x = xOfIndex(bestIdx), y = yOf(getValue(recent[bestIdx]));
+      ctx.strokeStyle = color; ctx.globalAlpha = 0.25; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, padTop + plotH); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    ctx.fillStyle = '#86A099'; ctx.font = '9.5px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(vMax.toFixed(1), 2, padTop + 8);
+    ctx.fillText(vMin.toFixed(1), 2, padTop + plotH - 2);
+
+    // ป้ายเวลาด้านล่างของแต่ละจุด (เว้นบางจุดถ้าจุดเยอะกันทับกัน)
+    // จุดแรก/สุดท้ายชิดขอบกราฟ เลยจัดชิดซ้าย/ขวาแทน center กันตัวหนังสือล้นออกนอกกรอบ
+    const labelStep = Math.max(1, Math.ceil(n / 6));
+    const shownIdx = [];
+    for (let i = 0; i < n; i += labelStep) shownIdx.push(i);
+    if (shownIdx[shownIdx.length - 1] !== n - 1) {
+      // ถ้าป้ายสุดท้ายที่เลือกไว้อยู่ติดกับจุดล่าสุดมากเกินไปจนจะเบียดกัน ให้ตัดออกแล้วใช้จุดล่าสุดแทน
+      if (n - 1 - shownIdx[shownIdx.length - 1] < labelStep) shownIdx.pop();
+      shownIdx.push(n - 1);
+    }
+    ctx.fillStyle = '#86A099'; ctx.font = '9px monospace';
+    shownIdx.forEach(i => {
+      ctx.textAlign = i === 0 ? 'left' : (i === n - 1 ? 'right' : 'center');
+      ctx.fillText(formatClock(recent[i].epoch), xOfIndex(i), h - 14);
+    });
+
+    // ป้ายช่วงวันที่มุมขวาบน (โชว์วันเดียวถ้าทุกจุดอยู่วันเดียวกัน หรือช่วงวันที่ถ้าคาบหลายวัน)
+    const firstDate = formatDateShort(recent[0].epoch);
+    const lastDate = formatDateShort(recent[n - 1].epoch);
+    ctx.fillStyle = '#4A655F'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(firstDate === lastDate ? firstDate : (firstDate + '–' + lastDate), w - 2, 10);
   }
 
-  function setupDailyChartTap(key, canvasId, tooltipId, unit, getStats) {
+  function setupRecentChartTap(key, canvasId, tooltipId, unit) {
     const canvas = document.getElementById(canvasId);
     const handler = (evt) => {
-      const state = dailyChartState[key];
-      if (!state.bins.length || !state.xOfBin) return;
+      const state = recentChartState[key];
+      if (!state.points.length || !state.xOfPoint) return;
       const rect = state.canvas.getBoundingClientRect();
       const tapX = evt.clientX - rect.left;
-      let closestIdx = 0, bestDiff = Infinity;
-      state.bins.forEach((b, i) => {
-        const diff = Math.abs(state.xOfBin(i) - tapX);
-        if (diff < bestDiff) { bestDiff = diff; closestIdx = i; }
+      let closest = state.points[0], bestDiff = Infinity;
+      state.points.forEach(p => {
+        const diff = Math.abs(state.xOfPoint(p) - tapX);
+        if (diff < bestDiff) { bestDiff = diff; closest = p; }
       });
-      const bin = state.bins[closestIdx];
-      const s = getStats(bin);
-      const tooltipEl = document.getElementById(tooltipId);
-      if (!s) {
-        tooltipEl.textContent = 'ไม่มีข้อมูลของวันที่ ' + formatDateShort(bin.dayStart);
-        return;
-      }
-      tooltipEl.innerHTML = '<b>เฉลี่ย ' + s.avg.toFixed(2) + ' ' + unit + '</b> (ต่ำสุด ' + s.min.toFixed(2) +
-        ' · สูงสุด ' + s.max.toFixed(2) + ') — ' + formatDateShort(bin.dayStart) + ' · ' + s.count + ' จุด';
+      const value = key === 'do' ? closest.do : closest.temp;
+      document.getElementById(tooltipId).innerHTML =
+        '<b>' + value.toFixed(2) + ' ' + unit + '</b> — ' + formatClock(closest.epoch) + ' น. · ' + formatDateShort(closest.epoch);
+      drawRecentChart(key, canvasId, state.rawPoints, state.getValue, state.color, closest.epoch);
+    };
+    const resetHighlight = () => {
+      const state = recentChartState[key];
+      if (!state.rawPoints) return;
+      drawRecentChart(key, canvasId, state.rawPoints, state.getValue, state.color, null);
     };
     canvas.addEventListener('click', handler);
+    canvas.addEventListener('mousemove', handler);
+    canvas.addEventListener('mouseleave', resetHighlight);
     canvas.addEventListener('touchstart', (e) => { if (e.touches.length > 0) handler(e.touches[0]); }, { passive: true });
   }
 
-  // แสดงข้อมูลย้อนหลังเป็นรายการ "รายวัน" ให้ดูตรงๆ ได้โดยไม่ต้องแตะกราฟ (ใหม่สุดอยู่บนสุด)
-  function renderDailyList(listId, bins, getStats, unit) {
+  // แสดงค่าที่วัดล่าสุด N ครั้งเป็นรายการให้ดูตรงๆ ได้โดยไม่ต้องแตะกราฟ (ใหม่สุดอยู่บนสุด)
+  function renderRecentList(listId, points, getValue, unit) {
     const el = document.getElementById(listId);
-    const todayStart = startOfDayEpoch(Math.floor(Date.now() / 1000));
-    const rows = bins.slice().reverse().map(b => {
-      const s = getStats(b);
-      const isToday = b.dayStart === todayStart;
-      const dateLabel = formatDateShort(b.dayStart) + (isToday ? ' (วันนี้)' : '');
-      const valueHtml = s
-        ? '<span class="daily-list-avg">' + s.avg.toFixed(2) + ' ' + unit + '</span>' +
-          '<span class="daily-list-range">(' + s.min.toFixed(2) + '–' + s.max.toFixed(2) + ' · ' + s.count + ' จุด)</span>'
-        : '<span class="daily-list-avg empty">ไม่มีข้อมูล</span>';
-      return '<div class="daily-list-row' + (isToday ? ' today' : '') + '">' +
+    const recent = getRecentReadings(points, getValue, RECENT_READINGS_COUNT);
+    if (!recent.length) {
+      el.innerHTML = '<div class="daily-list-row"><span class="daily-list-date">ยังไม่มีข้อมูล</span></div>';
+      return;
+    }
+    const rows = recent.slice().reverse().map((p, idx) => {
+      const isLatest = idx === 0;
+      const dateLabel = formatClock(p.epoch) + ' น. · ' + formatDateShort(p.epoch) + (isLatest ? ' (ล่าสุด)' : '');
+      return '<div class="daily-list-row' + (isLatest ? ' today' : '') + '">' +
         '<span class="daily-list-date">' + dateLabel + '</span>' +
-        '<span class="daily-list-stats">' + valueHtml + '</span>' +
+        '<span class="daily-list-stats"><span class="daily-list-avg">' + getValue(p).toFixed(2) + ' ' + unit + '</span></span>' +
         '</div>';
     }).join('');
     el.innerHTML = rows;
   }
 
-  function renderDailyCharts() {
-    const doBins = aggregateDaily(historyPoints, dailyRangeDays.do);
-    const tempBins = aggregateDaily(historyPoints, dailyRangeDays.temp);
-    drawDailyChart('do', 'doDailyChartCanvas', doBins, b => b.do, '#0B8A7A');
-    drawDailyChart('temp', 'tempDailyChartCanvas', tempBins, b => b.temp, '#E08B2C');
-    renderDailyList('doDailyList', doBins, b => b.do, 'mg/L');
-    renderDailyList('tempDailyList', tempBins, b => b.temp, '°C');
+  function renderRecentReadings() {
+    drawRecentChart('do', 'doDailyChartCanvas', historyPoints, p => p.do, '#0B8A7A');
+    drawRecentChart('temp', 'tempDailyChartCanvas', historyPoints, p => p.temp, '#E08B2C');
+    renderRecentList('doDailyList', historyPoints, p => p.do, 'mg/L');
+    renderRecentList('tempDailyList', historyPoints, p => p.temp, '°C');
   }
 
-  function setupRangeTabs(containerId, key) {
-    const container = document.getElementById(containerId);
-    container.querySelectorAll('.range-tab').forEach(btn => {
-      btn.addEventListener('click', () => {
-        container.querySelectorAll('.range-tab').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        dailyRangeDays[key] = parseInt(btn.dataset.days, 10);
-        renderDailyCharts();
-      });
-    });
-  }
-  setupRangeTabs('doDailyRangeTabs', 'do');
-  setupRangeTabs('tempDailyRangeTabs', 'temp');
-  setupDailyChartTap('do', 'doDailyChartCanvas', 'doDailyChartTooltip', 'mg/L', b => b.do);
-  setupDailyChartTap('temp', 'tempDailyChartCanvas', 'tempDailyChartTooltip', '°C', b => b.temp);
+  setupRecentChartTap('do', 'doDailyChartCanvas', 'doDailyChartTooltip', 'mg/L');
+  setupRecentChartTap('temp', 'tempDailyChartCanvas', 'tempDailyChartTooltip', '°C');
 
   // ---------- สภาพอากาศ (Open-Meteo) ----------
   async function updateWeather() {
