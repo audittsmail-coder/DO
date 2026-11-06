@@ -146,11 +146,26 @@
   .weather-hour-icon { font-size: 19px; margin: 4px 0; }
   .weather-hour-temp { font-size: 11.5px; font-weight: 700; color: var(--ink); font-family: 'JetBrains Mono', monospace; }
   .weather-hour-rain { font-size: 9.5px; color: var(--teal-deep); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+
+  /* จอกว้าง (แท็บเล็ต/PC): จัดการ์ดเป็น 2 คอลัมน์แนวนอนแทนการเรียงต่อกันแนวตั้งแบบมือถือ */
+  @media (min-width: 760px) {
+    body {
+      max-width: 980px;
+      display: grid; grid-template-columns: 1fr 1fr; align-content: start;
+      column-gap: 16px; row-gap: 14px;
+    }
+    .header, .do-card, .mini-grid, .section-label, .footer-note, .full-span {
+      grid-column: 1 / -1;
+    }
+    /* ยกเลิก margin-bottom เดิม (สำหรับเลย์เอาต์มือถือ) เพราะใช้ grid gap แทนแล้ว */
+    .header, .card, .mini-grid, .chart-card, .section-label { margin-bottom: 0; }
+    .section-label { margin-top: 10px; }
+  }
 </style>
 </head>
 <body>
 
-  <div class="chart-card">
+  <div class="chart-card full-span">
     <div class="chart-header">
       <div>
         <div class="chart-title">🌤️ สภาพอากาศ</div>
@@ -267,7 +282,7 @@
 
   <div class="section-label">🗑️ จัดการข้อมูล</div>
 
-  <div class="chart-card">
+  <div class="chart-card full-span">
     <div class="chart-header">
       <div class="chart-title">ล้างข้อมูลย้อนหลัง</div>
     </div>
