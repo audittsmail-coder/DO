@@ -120,6 +120,14 @@
   .history-row-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 10.5px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
   .history-row-stats b { color: var(--ink); font-weight: 700; }
   .history-row-chevron { color: var(--muted); font-size: 15px; flex-shrink: 0; }
+  .history-row-wrap { display: flex; align-items: stretch; gap: 6px; }
+  .history-row-wrap .history-row { flex: 1; min-width: 0; }
+  .history-row-delete {
+    flex-shrink: 0; width: 38px; border: none; border-radius: 10px; background: var(--bg); color: var(--muted);
+    cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  }
+  .history-row-delete:hover { background: #FBEAE8; color: var(--coral); }
+  .history-row-delete:disabled { opacity: 0.5; cursor: default; }
   .history-empty { text-align: center; color: var(--muted); font-size: 12.5px; padding: 24px 10px; }
 
   .clear-options { display: flex; flex-wrap: wrap; gap: 14px 20px; margin: 10px 0 14px; }
@@ -297,6 +305,7 @@
 
     <div id="historyMonthsPanel" class="history-list"></div>
     <div id="historyDaysPanel" class="history-list" hidden></div>
+    <div class="clear-status" id="historyDeleteStatus"></div>
 
     <div id="historyDayDetailPanel" hidden>
       <div class="chart-sub" style="margin-top:4px;">DO (mg/L)</div>
@@ -1039,14 +1048,17 @@
           const isToday = d.dayStart === todayStart;
           const doText = d.do ? d.do.avg.toFixed(2) + ' mg/L' : '—';
           const tempText = d.temp ? d.temp.avg.toFixed(1) + ' °C' : '—';
-          return '<button class="history-row" data-day="' + d.dayStart + '">' +
-            '<span class="history-row-label">' + formatDateShort(d.dayStart) + (isToday ? ' (วันนี้)' : '') + '</span>' +
-            '<span class="history-row-stats">' +
-              '<span>DO <b>' + doText + '</b></span>' +
-              '<span>อุณหภูมิ <b>' + tempText + '</b></span>' +
-            '</span>' +
-            '<span class="history-row-chevron">›</span>' +
-            '</button>';
+          return '<div class="history-row-wrap">' +
+            '<button class="history-row" data-day="' + d.dayStart + '">' +
+              '<span class="history-row-label">' + formatDateShort(d.dayStart) + (isToday ? ' (วันนี้)' : '') + '</span>' +
+              '<span class="history-row-stats">' +
+                '<span>DO <b>' + doText + '</b></span>' +
+                '<span>อุณหภูมิ <b>' + tempText + '</b></span>' +
+              '</span>' +
+              '<span class="history-row-chevron">›</span>' +
+              '</button>' +
+            '<button class="history-row-delete" data-delete-day="' + d.dayStart + '" title="ลบข้อมูลวันนี้">🗑️</button>' +
+            '</div>';
         }).join('')
       : '<div class="history-empty">ยังไม่มีข้อมูล</div>';
   }
@@ -1058,7 +1070,51 @@
     historyView.monthStart = parseInt(row.dataset.month, 10);
     renderHistoryExplorer();
   });
+  // ลบข้อมูลดิบทั้งหมดของวันที่ระบุออกจาก Firebase ถาวร (ใช้ epoch ที่มีอยู่จริงใน historyPoints เป็น key)
+  async function deleteDayData(dayStart, btnEl) {
+    const dayPoints = historyPoints.filter(p => p.epoch >= dayStart && p.epoch < dayStart + 24 * 3600);
+    if (!dayPoints.length) return;
+
+    const dateLabel = formatDateShort(dayStart);
+    const confirmMsg = 'ยืนยันลบข้อมูลวันที่ ' + dateLabel + ' ทั้งหมด (' + dayPoints.length + ' รายการ)?\n\n' +
+      'การกระทำนี้ลบข้อมูลออกจาก Firebase ถาวร กู้คืนไม่ได้';
+    if (!window.confirm(confirmMsg)) return;
+
+    const statusEl = document.getElementById('historyDeleteStatus');
+    if (btnEl) btnEl.disabled = true;
+    statusEl.textContent = 'กำลังลบข้อมูลวันที่ ' + dateLabel + '...';
+    statusEl.className = 'clear-status';
+
+    try {
+      const updatePayload = {};
+      dayPoints.forEach(p => { updatePayload['history/' + p.epoch] = null; });
+
+      const patchRes = await fetch(`https://${FIREBASE_HOST}/devices/${DEVICE_ID}.json`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatePayload)
+      });
+      if (!patchRes.ok) {
+        const errText = await patchRes.text();
+        throw new Error(errText || ('HTTP ' + patchRes.status));
+      }
+
+      statusEl.textContent = '✓ ลบข้อมูลวันที่ ' + dateLabel + ' สำเร็จ (' + dayPoints.length + ' รายการ)';
+      statusEl.className = 'clear-status ok';
+      await updateHistory(); // ดึงข้อมูลใหม่แล้ว renderHistoryExplorer() จะอัปเดตรายการให้เอง
+    } catch (e) {
+      statusEl.textContent = 'ลบข้อมูลไม่สำเร็จ: ' + (e.message || 'เชื่อมต่อไม่ได้ (ตรวจสอบสิทธิ์เขียนข้อมูลใน Firebase Rules)');
+      statusEl.className = 'clear-status warn';
+      if (btnEl) btnEl.disabled = false;
+    }
+  }
+
   document.getElementById('historyDaysPanel').addEventListener('click', (e) => {
+    const delBtn = e.target.closest('.history-row-delete');
+    if (delBtn) {
+      deleteDayData(parseInt(delBtn.dataset.deleteDay, 10), delBtn);
+      return;
+    }
     const row = e.target.closest('.history-row');
     if (!row) return;
     historyView.mode = 'day-detail';
