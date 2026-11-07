@@ -900,15 +900,17 @@
   }
 
   // สรุปค่าสูงสุด/ต่ำสุด (พร้อมเวลาที่วัดได้) จากค่าที่วัดล่าสุด N ครั้งเดียวกับที่กราฟ/รายการแสดง
+  // สูงสุด/ต่ำสุดของ "ทั้งวันนี้" (ทุกค่าที่วัดได้ตั้งแต่เที่ยงคืน) ไม่ใช่แค่ในกราฟ 10 ค่าล่าสุด
   function renderRecentStats(statsId, points, getValue, unit) {
     const el = document.getElementById(statsId);
-    const recent = getRecentReadings(points, getValue, RECENT_READINGS_COUNT);
-    if (!recent.length) {
+    const todayStart = startOfDayEpoch(Math.floor(Date.now() / 1000));
+    const todays = points.filter(p => p.epoch >= todayStart && p.epoch < todayStart + 24 * 3600 && getValue(p) != null);
+    if (!todays.length) {
       el.innerHTML = '';
       return;
     }
-    let maxP = recent[0], minP = recent[0];
-    recent.forEach(p => {
+    let maxP = todays[0], minP = todays[0];
+    todays.forEach(p => {
       if (getValue(p) > getValue(maxP)) maxP = p;
       if (getValue(p) < getValue(minP)) minP = p;
     });
@@ -919,7 +921,7 @@
         '<div class="recent-stat-time">' + formatClock(p.epoch) + ' น. · ' + formatDateShort(p.epoch) + '</div>' +
         '</div>';
     }
-    el.innerHTML = statCard('🔺 สูงสุด', maxP) + statCard('🔻 ต่ำสุด', minP);
+    el.innerHTML = statCard('🔺 สูงสุดวันนี้', maxP) + statCard('🔻 ต่ำสุดวันนี้', minP);
   }
 
   function renderRecentReadings() {
