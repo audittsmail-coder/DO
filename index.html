@@ -67,9 +67,12 @@
   .status-chip.warn { background: #FBEAE8; color: var(--coral); }
   .do-meta-row { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); padding: 4px 0; border-top: 1px solid var(--card-border); }
   .do-meta-row b { color: var(--ink-soft); font-family: 'JetBrains Mono', monospace; font-weight: 600; }
-  .do-temp-inline { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-soft); margin-bottom: 10px; }
-  .do-temp-inline b { font-family: 'JetBrains Mono', monospace; color: var(--ink); font-size: 14px; font-weight: 700; }
-  .do-temp-inline b span { font-size: 11px; font-weight: 500; color: var(--muted); margin-left: 2px; }
+  .do-stat-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .do-stat-box { flex: 1 1 140px; background: var(--bg); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; justify-content: center; }
+  .do-stat-box .status-chip { margin-bottom: 0; }
+  .do-stat-label { font-size: 10.5px; color: var(--muted); margin-bottom: 2px; }
+  .do-stat-value { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: var(--ink); }
+  .do-stat-value span { font-size: 11px; font-weight: 500; color: var(--muted); margin-left: 2px; }
 
   .mini-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
   .mini-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow); }
@@ -232,8 +235,15 @@
     </div>
     <div class="do-info">
       <div class="do-title">ออกซิเจนละลายน้ำ (DO)</div>
-      <div class="status-chip" id="doStatusChip">กำลังเช็ค...</div>
-      <div class="do-temp-inline">🌡️ อุณหภูมิน้ำ <b id="tempValue">-- <span>°C</span></b></div>
+      <div class="do-stat-row">
+        <div class="do-stat-box">
+          <div class="status-chip" id="doStatusChip">กำลังเช็ค...</div>
+        </div>
+        <div class="do-stat-box">
+          <div class="do-stat-label">🌡️ อุณหภูมิน้ำ</div>
+          <div class="do-stat-value" id="tempValue">-- <span>°C</span></div>
+        </div>
+      </div>
       <div class="do-meta-row"><span>ช่วงเกณฑ์ปลอดภัย</span><b>≥ 4.0 mg/L</b></div>
       <div class="do-meta-row"><span>อัปเดตล่าสุด</span><b id="updatedAgo">--</b></div>
     </div>
