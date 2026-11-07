@@ -1,0 +1,31 @@
+{
+  "name": "AquaPulse Online — บ่อกุ้ง A1",
+  "short_name": "AquaPulse",
+  "description": "แดชบอร์ดติดตามค่า DO อุณหภูมิ และความเค็มของบ่อกุ้งแบบเรียลไทม์",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F3F7F5",
+  "theme_color": "#0A6D61",
+  "lang": "th",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
