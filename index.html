@@ -19,6 +19,7 @@
     --muted: #86A099;
     --coral: #D9645A;
     --amber: #E08B2C;
+    --amber-mist: #FBEEDD;
     --shadow: 0 1px 3px rgba(20, 50, 42, 0.06), 0 1px 2px rgba(20, 50, 42, 0.04);
   }
   * { box-sizing: border-box; }
@@ -50,15 +51,20 @@
     background: var(--card); border: 1px solid var(--card-border); border-radius: 18px;
     padding: 18px 20px; box-shadow: var(--shadow); margin-bottom: 14px;
   }
-  .do-card { display: flex; align-items: center; gap: 20px; }
+  .do-card { display: flex; flex-direction: column; gap: 16px; }
+  .do-gauges-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; max-width: 420px; margin: 0 auto; }
+  .do-gauge-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .gauge-caption { font-size: 12px; font-weight: 700; color: var(--ink-soft); }
   .gauge-wrap { position: relative; width: 118px; height: 118px; flex-shrink: 0; }
   .gauge-wrap svg { width: 100%; height: 100%; transform: rotate(-90deg); }
   .gauge-track { fill: none; stroke: var(--teal-mist); stroke-width: 10; }
+  .gauge-track.temp-track { stroke: var(--amber-mist); }
   .gauge-fill { fill: none; stroke: var(--teal); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+  .gauge-fill.temp-fill { stroke: var(--amber); }
   .gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .gauge-value { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; line-height: 1; }
   .gauge-unit { font-size: 10px; color: var(--muted); margin-top: 2px; }
-  .do-info { flex: 1; min-width: 0; }
+  .do-info { min-width: 0; }
   .do-title { font-size: 13px; color: var(--ink-soft); margin-bottom: 8px; }
   .status-chip {
     display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px;
@@ -67,12 +73,6 @@
   .status-chip.warn { background: #FBEAE8; color: var(--coral); }
   .do-meta-row { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); padding: 4px 0; border-top: 1px solid var(--card-border); }
   .do-meta-row b { color: var(--ink-soft); font-family: 'JetBrains Mono', monospace; font-weight: 600; }
-  .do-stat-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-  .do-stat-box { flex: 1 1 140px; background: var(--bg); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; justify-content: center; }
-  .do-stat-box .status-chip { margin-bottom: 0; }
-  .do-stat-label { font-size: 10.5px; color: var(--muted); margin-bottom: 4px; }
-  .do-stat-value { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1; }
-  .do-stat-value span { font-size: 11px; font-weight: 500; color: var(--muted); margin-left: 3px; }
 
   .mini-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
   .mini-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow); }
@@ -223,27 +223,37 @@
   </div>
 
   <div class="card do-card">
-    <div class="gauge-wrap">
-      <svg viewBox="0 0 120 120">
-        <circle class="gauge-track" cx="60" cy="60" r="50"></circle>
-        <circle class="gauge-fill" id="gaugeFill" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"></circle>
-      </svg>
-      <div class="gauge-center">
-        <div class="gauge-value" id="doValue">--</div>
-        <div class="gauge-unit">mg/L</div>
+    <div class="do-gauges-row">
+      <div class="do-gauge-item">
+        <div class="gauge-wrap">
+          <svg viewBox="0 0 120 120">
+            <circle class="gauge-track" cx="60" cy="60" r="50"></circle>
+            <circle class="gauge-fill" id="gaugeFill" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"></circle>
+          </svg>
+          <div class="gauge-center">
+            <div class="gauge-value" id="doValue">--</div>
+            <div class="gauge-unit">mg/L</div>
+          </div>
+        </div>
+        <div class="gauge-caption">DO</div>
+      </div>
+      <div class="do-gauge-item">
+        <div class="gauge-wrap">
+          <svg viewBox="0 0 120 120">
+            <circle class="gauge-track temp-track" cx="60" cy="60" r="50"></circle>
+            <circle class="gauge-fill temp-fill" id="tempGaugeFill" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"></circle>
+          </svg>
+          <div class="gauge-center">
+            <div class="gauge-value" id="tempValue">--</div>
+            <div class="gauge-unit">°C</div>
+          </div>
+        </div>
+        <div class="gauge-caption">🌡️ อุณหภูมิน้ำ</div>
       </div>
     </div>
     <div class="do-info">
       <div class="do-title">ออกซิเจนละลายน้ำ (DO)</div>
-      <div class="do-stat-row">
-        <div class="do-stat-box">
-          <div class="status-chip" id="doStatusChip">กำลังเช็ค...</div>
-        </div>
-        <div class="do-stat-box">
-          <div class="do-stat-label">🌡️ อุณหภูมิน้ำ</div>
-          <div class="do-stat-value" id="tempValue">-- <span>°C</span></div>
-        </div>
-      </div>
+      <div class="status-chip" id="doStatusChip">กำลังเช็ค...</div>
       <div class="do-meta-row"><span>ช่วงเกณฑ์ปลอดภัย</span><b>≥ 4.0 mg/L</b></div>
       <div class="do-meta-row"><span>อัปเดตล่าสุด</span><b id="updatedAgo">--</b></div>
     </div>
@@ -355,6 +365,8 @@
 
   const GAUGE_CIRCUMFERENCE = 2 * Math.PI * 50; // r=50
   const GAUGE_MAX_DO = 12; // mg/L เต็มวงแหวน
+  const TEMP_GAUGE_MIN = 20; // °C ว่างวงแหวน
+  const TEMP_GAUGE_MAX = 35; // °C เต็มวงแหวน — ครอบคลุมช่วงอุณหภูมิน้ำบ่อกุ้งทั่วไป
   const STALE_AFTER_SEC = 300; // ถ้าไม่มีข้อมูลใหม่เกินนี้ (วินาที) ถือว่าอุปกรณ์ไม่ตอบสนอง — ปรับตามความถี่ส่งข้อมูลจริงของอุปกรณ์
 
   // ---------- ตั้งค่าสภาพอากาศ (Open-Meteo — ไม่ต้องใช้ API key) ----------
@@ -438,13 +450,18 @@
       }
 
       const doVal = data.do ?? 0;
+      const tempVal = data.temp ?? 0;
       document.getElementById('doValue').textContent = doVal.toFixed(2);
-      document.getElementById('tempValue').innerHTML = (data.temp ?? 0).toFixed(1) + ' <span>°C</span>';
+      document.getElementById('tempValue').textContent = tempVal.toFixed(1);
       document.getElementById('salinityValue').innerHTML = (data.salinity ?? 0) + ' <span>ppt</span>';
 
       const frac = Math.min(doVal / GAUGE_MAX_DO, 1);
       const offset = GAUGE_CIRCUMFERENCE * (1 - frac);
       document.getElementById('gaugeFill').style.strokeDashoffset = offset;
+
+      const tempFrac = Math.min(Math.max((tempVal - TEMP_GAUGE_MIN) / (TEMP_GAUGE_MAX - TEMP_GAUGE_MIN), 0), 1);
+      const tempOffset = GAUGE_CIRCUMFERENCE * (1 - tempFrac);
+      document.getElementById('tempGaugeFill').style.strokeDashoffset = tempOffset;
 
       const chip = document.getElementById('doStatusChip');
       if (isStale) {
