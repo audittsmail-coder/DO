@@ -197,6 +197,11 @@
     /* ยกเลิก margin-bottom เดิม (สำหรับเลย์เอาต์มือถือ) เพราะใช้ grid gap แทนแล้ว */
     .header, .card, .mini-grid, .chart-card, .section-label { margin-bottom: 0; }
     .section-label { margin-top: 10px; }
+
+    /* การ์ด DO/อุณหภูมิ: วางแนวนอน (มาตรวัดอยู่ซ้าย ข้อมูลอยู่ขวา) กันพื้นที่ว่างด้านข้างเยอะเกินไปตอนจอกว้าง */
+    .do-card { flex-direction: row; align-items: center; gap: 28px; }
+    .do-gauges-row { flex-shrink: 0; flex-wrap: nowrap; max-width: none; margin: 0; }
+    .do-info { flex: 1; }
   }
 </style>
 </head>
