@@ -335,10 +335,7 @@
       <div class="chart-title">DO ล่าสุด (mg/L)</div>
     </div>
     <div class="chart-sub">ค่าที่วัดล่าสุด 10 ครั้ง เรียงตามเวลา</div>
-    <canvas class="trend-canvas" id="doDailyChartCanvas"></canvas>
     <div class="recent-stats" id="doRecentStats"></div>
-    <div class="chart-latest" id="doDailyChartTooltip">แตะที่จุดในกราฟเพื่อดูค่า</div>
-    <div class="chart-tap-hint">แตะ/คลิกที่จุดไหนก็ได้เพื่อดูค่าตรงจุดนั้น</div>
     <div class="daily-list" id="doDailyList"></div>
   </div>
 
@@ -347,10 +344,7 @@
       <div class="chart-title">อุณหภูมิล่าสุด (°C)</div>
     </div>
     <div class="chart-sub">ค่าที่วัดล่าสุด 10 ครั้ง เรียงตามเวลา</div>
-    <canvas class="trend-canvas" id="tempDailyChartCanvas"></canvas>
     <div class="recent-stats" id="tempRecentStats"></div>
-    <div class="chart-latest" id="tempDailyChartTooltip">แตะที่จุดในกราฟเพื่อดูค่า</div>
-    <div class="chart-tap-hint">แตะ/คลิกที่จุดไหนก็ได้เพื่อดูค่าตรงจุดนั้น</div>
     <div class="daily-list" id="tempDailyList"></div>
   </div>
 
@@ -782,173 +776,11 @@
   setupChartTap('do', 'doChartCanvas', 'doChartTooltip', 'mg/L');
   setupChartTap('temp', 'tempChartCanvas', 'tempChartTooltip', '°C');
 
-  // ---------- กราฟค่าที่วัดล่าสุด N ครั้ง (ไม่ใช่ค่าเฉลี่ยรายวัน เพราะข้อมูลย้อนหลังหลายวันอาจยังมีไม่พอ) ----------
+  // ---------- ค่าที่วัดล่าสุด N ครั้ง (ไม่ใช่ค่าเฉลี่ยรายวัน เพราะข้อมูลย้อนหลังหลายวันอาจยังมีไม่พอ) ----------
   const RECENT_READINGS_COUNT = 10;
-  const recentChartState = {
-    do: { canvas: null, points: [], xOfPoint: null, rawPoints: null, getValue: null, color: null },
-    temp: { canvas: null, points: [], xOfPoint: null, rawPoints: null, getValue: null, color: null }
-  };
 
   function getRecentReadings(points, getValue, count) {
     return points.filter(p => getValue(p) != null).slice(-count);
-  }
-
-  function drawRecentChart(key, canvasId, points, getValue, color, highlightEpoch) {
-    const canvas = document.getElementById(canvasId);
-    const ctx = canvas.getContext('2d');
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
-    const w = rect.width, h = rect.height;
-    ctx.clearRect(0, 0, w, h);
-
-    const padL = 34, padR = 8, padTop = 22, padBottom = 28;
-    const plotH = h - padTop - padBottom;
-    const plotW = w - padL - padR;
-
-    const recent = getRecentReadings(points, getValue, RECENT_READINGS_COUNT);
-    const n = recent.length;
-    recentChartState[key].canvas = canvas;
-    recentChartState[key].points = recent;
-    recentChartState[key].rawPoints = points;
-    recentChartState[key].getValue = getValue;
-    recentChartState[key].color = color;
-
-    if (n < 1) {
-      recentChartState[key].xOfPoint = null;
-      ctx.fillStyle = '#86A099'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('ยังไม่มีข้อมูล', w / 2, padTop + plotH / 2);
-      return;
-    }
-
-    const slot = n > 1 ? plotW / (n - 1) : 0;
-    function xOfIndex(i) { return n > 1 ? padL + slot * i : padL + plotW / 2; }
-    function xOfPoint(p) {
-      const idx = recent.indexOf(p);
-      return xOfIndex(idx < 0 ? n - 1 : idx);
-    }
-    recentChartState[key].xOfPoint = xOfPoint;
-
-    const values = recent.map(getValue);
-    let vMin = Math.min(...values), vMax = Math.max(...values);
-    if (vMax - vMin < 0.5) {
-      const mid = (vMax + vMin) / 2;
-      vMin = mid - 0.5; vMax = mid + 0.5;
-    }
-    const margin = (vMax - vMin) * 0.15;
-    vMin = Math.max(0, vMin - margin);
-    vMax = vMax + margin;
-    function yOf(value) { return padTop + plotH - ((value - vMin) / (vMax - vMin)) * plotH; }
-
-    ctx.strokeStyle = '#EAF2EF'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(padL, padTop); ctx.lineTo(padL + plotW, padTop); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(padL, padTop + plotH); ctx.lineTo(padL + plotW, padTop + plotH); ctx.stroke();
-
-    if (n > 1) {
-      // พื้นที่แรเงาใต้เส้น
-      ctx.beginPath();
-      recent.forEach((p, i) => {
-        const x = xOfIndex(i), y = yOf(getValue(p));
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      });
-      ctx.lineTo(xOfIndex(n - 1), padTop + plotH);
-      ctx.lineTo(xOfIndex(0), padTop + plotH);
-      ctx.closePath();
-      ctx.fillStyle = hexToRgba(color, 0.1);
-      ctx.fill();
-
-      // เส้นเชื่อมค่าที่วัดได้
-      ctx.beginPath();
-      recent.forEach((p, i) => {
-        const x = xOfIndex(i), y = yOf(getValue(p));
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      });
-      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      ctx.stroke();
-    }
-
-    // จุดของแต่ละค่าที่วัดได้
-    recent.forEach((p, i) => {
-      const x = xOfIndex(i), y = yOf(getValue(p));
-      const isLast = i === n - 1;
-      ctx.globalAlpha = isLast ? 1 : 0.6;
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(x, y, isLast ? 5 : 3, 0, Math.PI * 2); ctx.fill();
-      if (isLast) { ctx.globalAlpha = 1; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5; ctx.stroke(); }
-    });
-    ctx.globalAlpha = 1;
-
-    // ไฮไลต์จุดที่แตะ/ชี้อยู่ (ถ้ามี) พร้อมเส้นไกด์แนวตั้งบางๆ
-    if (highlightEpoch != null) {
-      let bestIdx = 0, bestDiff = Infinity;
-      recent.forEach((p, i) => {
-        const diff = Math.abs(p.epoch - highlightEpoch);
-        if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
-      });
-      const x = xOfIndex(bestIdx), y = yOf(getValue(recent[bestIdx]));
-      ctx.strokeStyle = color; ctx.globalAlpha = 0.25; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, padTop + plotH); ctx.stroke();
-      ctx.setLineDash([]); ctx.globalAlpha = 1;
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2; ctx.stroke();
-    }
-
-    ctx.fillStyle = '#86A099'; ctx.font = '9.5px monospace'; ctx.textAlign = 'left';
-    ctx.fillText(vMax.toFixed(1), 2, padTop + 8);
-    ctx.fillText(vMin.toFixed(1), 2, padTop + plotH - 2);
-
-    // ป้ายเวลาด้านล่างของแต่ละจุด (เว้นบางจุดถ้าจุดเยอะกันทับกัน)
-    // จุดแรก/สุดท้ายชิดขอบกราฟ เลยจัดชิดซ้าย/ขวาแทน center กันตัวหนังสือล้นออกนอกกรอบ
-    const labelStep = Math.max(1, Math.ceil(n / 6));
-    const shownIdx = [];
-    for (let i = 0; i < n; i += labelStep) shownIdx.push(i);
-    if (shownIdx[shownIdx.length - 1] !== n - 1) {
-      // ถ้าป้ายสุดท้ายที่เลือกไว้อยู่ติดกับจุดล่าสุดมากเกินไปจนจะเบียดกัน ให้ตัดออกแล้วใช้จุดล่าสุดแทน
-      if (n - 1 - shownIdx[shownIdx.length - 1] < labelStep) shownIdx.pop();
-      shownIdx.push(n - 1);
-    }
-    ctx.fillStyle = '#86A099'; ctx.font = '9px monospace';
-    shownIdx.forEach(i => {
-      ctx.textAlign = i === 0 ? 'left' : (i === n - 1 ? 'right' : 'center');
-      ctx.fillText(formatClock(recent[i].epoch), xOfIndex(i), h - 14);
-    });
-
-    // ป้ายช่วงวันที่มุมขวาบน (โชว์วันเดียวถ้าทุกจุดอยู่วันเดียวกัน หรือช่วงวันที่ถ้าคาบหลายวัน)
-    const firstDate = formatDateShort(recent[0].epoch);
-    const lastDate = formatDateShort(recent[n - 1].epoch);
-    ctx.fillStyle = '#4A655F'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
-    ctx.fillText(firstDate === lastDate ? firstDate : (firstDate + '–' + lastDate), w - 2, 10);
-  }
-
-  function setupRecentChartTap(key, canvasId, tooltipId, unit) {
-    const canvas = document.getElementById(canvasId);
-    const handler = (evt) => {
-      const state = recentChartState[key];
-      if (!state.points.length || !state.xOfPoint) return;
-      const rect = state.canvas.getBoundingClientRect();
-      const tapX = evt.clientX - rect.left;
-      let closest = state.points[0], bestDiff = Infinity;
-      state.points.forEach(p => {
-        const diff = Math.abs(state.xOfPoint(p) - tapX);
-        if (diff < bestDiff) { bestDiff = diff; closest = p; }
-      });
-      const value = key === 'do' ? closest.do : closest.temp;
-      document.getElementById(tooltipId).innerHTML =
-        '<b>' + value.toFixed(2) + ' ' + unit + '</b> — ' + formatClock(closest.epoch) + ' น. · ' + formatDateShort(closest.epoch);
-      drawRecentChart(key, canvasId, state.rawPoints, state.getValue, state.color, closest.epoch);
-    };
-    const resetHighlight = () => {
-      const state = recentChartState[key];
-      if (!state.rawPoints) return;
-      drawRecentChart(key, canvasId, state.rawPoints, state.getValue, state.color, null);
-    };
-    canvas.addEventListener('click', handler);
-    canvas.addEventListener('mousemove', handler);
-    canvas.addEventListener('mouseleave', resetHighlight);
-    canvas.addEventListener('touchstart', (e) => { if (e.touches.length > 0) handler(e.touches[0]); }, { passive: true });
   }
 
   // แสดงค่าที่วัดล่าสุด N ครั้งเป็นรายการให้ดูตรงๆ ได้โดยไม่ต้องแตะกราฟ (ใหม่สุดอยู่บนสุด)
@@ -996,8 +828,6 @@
   }
 
   function renderRecentReadings() {
-    drawRecentChart('do', 'doDailyChartCanvas', historyPoints, p => p.do, '#0B8A7A');
-    drawRecentChart('temp', 'tempDailyChartCanvas', historyPoints, p => p.temp, '#E08B2C');
     renderRecentStats('doRecentStats', historyPoints, p => p.do, 'mg/L');
     renderRecentStats('tempRecentStats', historyPoints, p => p.temp, '°C');
     renderRecentList('doDailyList', historyPoints, p => p.do, 'mg/L');
@@ -1205,9 +1035,6 @@
   });
   setupChartTap('historyDay-do', 'historyDayDoCanvas', 'historyDayDoTooltip', 'mg/L');
   setupChartTap('historyDay-temp', 'historyDayTempCanvas', 'historyDayTempTooltip', '°C');
-
-  setupRecentChartTap('do', 'doDailyChartCanvas', 'doDailyChartTooltip', 'mg/L');
-  setupRecentChartTap('temp', 'tempDailyChartCanvas', 'tempDailyChartTooltip', '°C');
 
   // ---------- สภาพอากาศ (Open-Meteo) ----------
   async function updateWeather() {
