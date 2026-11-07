@@ -56,14 +56,20 @@
   .do-gauge-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .gauge-caption { font-size: 12px; font-weight: 700; color: var(--ink-soft); }
   .gauge-wrap { position: relative; width: 118px; height: 118px; flex-shrink: 0; }
-  .gauge-wrap svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-  .gauge-track { fill: none; stroke: var(--teal-mist); stroke-width: 10; }
-  .gauge-track.temp-track { stroke: var(--amber-mist); }
-  .gauge-fill { fill: none; stroke: var(--teal); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
-  .gauge-fill.temp-fill { stroke: var(--amber); }
-  .gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .gauge-value { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; line-height: 1; }
-  .gauge-unit { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .gauge-wrap svg { width: 100%; height: 100%; overflow: visible; }
+  .dial-bg { fill: none; stroke: var(--card-border); stroke-width: 10; }
+  .dial-zone { fill: none; stroke-width: 10; stroke-linecap: round; }
+  .dial-zone.zone-danger { stroke: var(--coral); }
+  .dial-zone.zone-safe { stroke: var(--teal); }
+  .dial-zone.zone-temp { stroke: var(--amber); }
+  .dial-tick { stroke: var(--muted); stroke-width: 1.5; opacity: 0.55; }
+  .dial-tick-label { font-size: 7px; fill: var(--muted); font-family: 'JetBrains Mono', monospace; text-anchor: middle; }
+  .dial-needle-group { transform-origin: 60px 60px; transition: transform 0.6s cubic-bezier(.34, 1.2, .64, 1); }
+  .dial-needle-line { stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
+  .dial-needle-hub { fill: var(--ink); stroke: #FFFFFF; stroke-width: 2; }
+  .gauge-center { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; flex-direction: column; align-items: center; }
+  .gauge-value { font-family: 'JetBrains Mono', monospace; font-size: 21px; font-weight: 700; line-height: 1; }
+  .gauge-unit { font-size: 9.5px; color: var(--muted); margin-top: 1px; }
   .do-info { min-width: 0; }
   .do-title { font-size: 13px; color: var(--ink-soft); margin-bottom: 8px; }
   .status-chip {
@@ -227,8 +233,26 @@
       <div class="do-gauge-item">
         <div class="gauge-wrap">
           <svg viewBox="0 0 120 120">
-            <circle class="gauge-track" cx="60" cy="60" r="50"></circle>
-            <circle class="gauge-fill" id="gaugeFill" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"></circle>
+            <path class="dial-zone zone-danger" d="M 21.89 82 A 44 44 0 0 1 31.72 26.29"></path>
+            <path class="dial-zone zone-safe" d="M 31.72 26.29 A 44 44 0 0 1 98.11 82"></path>
+            <line class="dial-tick" x1="28.82" y1="78" x2="23.63" y2="81"></line>
+            <line class="dial-tick" x1="24.55" y1="53.75" x2="18.64" y2="52.71"></line>
+            <line class="dial-tick" x1="36.86" y1="32.42" x2="33" y2="27.83"></line>
+            <line class="dial-tick" x1="60" y1="24" x2="60" y2="18"></line>
+            <line class="dial-tick" x1="83.14" y1="32.42" x2="87" y2="27.83"></line>
+            <line class="dial-tick" x1="95.45" y1="53.75" x2="101.36" y2="52.71"></line>
+            <line class="dial-tick" x1="91.18" y1="78" x2="96.37" y2="81"></line>
+            <text class="dial-tick-label" x="35.75" y="76">0</text>
+            <text class="dial-tick-label" x="32.43" y="57">2</text>
+            <text class="dial-tick-label" x="42" y="40.5">4</text>
+            <text class="dial-tick-label" x="60" y="34">6</text>
+            <text class="dial-tick-label" x="78" y="40.5">8</text>
+            <text class="dial-tick-label" x="87.57" y="57">10</text>
+            <text class="dial-tick-label" x="84.25" y="76">12</text>
+            <g class="dial-needle-group" id="doNeedle">
+              <line class="dial-needle-line" x1="60" y1="60" x2="60" y2="26"></line>
+              <circle class="dial-needle-hub" cx="60" cy="60" r="4"></circle>
+            </g>
           </svg>
           <div class="gauge-center">
             <div class="gauge-value" id="doValue">--</div>
@@ -240,8 +264,21 @@
       <div class="do-gauge-item">
         <div class="gauge-wrap">
           <svg viewBox="0 0 120 120">
-            <circle class="gauge-track temp-track" cx="60" cy="60" r="50"></circle>
-            <circle class="gauge-fill temp-fill" id="tempGaugeFill" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"></circle>
+            <path class="dial-zone zone-temp" d="M 21.89 82 A 44 44 0 1 1 98.11 82"></path>
+            <line class="dial-tick" x1="28.82" y1="78" x2="23.63" y2="81"></line>
+            <line class="dial-tick" x1="28.82" y1="42" x2="23.63" y2="39"></line>
+            <line class="dial-tick" x1="60" y1="24" x2="60" y2="18"></line>
+            <line class="dial-tick" x1="91.18" y1="42" x2="96.37" y2="39"></line>
+            <line class="dial-tick" x1="91.18" y1="78" x2="96.37" y2="81"></line>
+            <text class="dial-tick-label" x="35.75" y="76">15</text>
+            <text class="dial-tick-label" x="35.75" y="48">20</text>
+            <text class="dial-tick-label" x="60" y="34">25</text>
+            <text class="dial-tick-label" x="84.25" y="48">30</text>
+            <text class="dial-tick-label" x="84.25" y="76">35</text>
+            <g class="dial-needle-group" id="tempNeedle">
+              <line class="dial-needle-line" x1="60" y1="60" x2="60" y2="26"></line>
+              <circle class="dial-needle-hub" cx="60" cy="60" r="4"></circle>
+            </g>
           </svg>
           <div class="gauge-center">
             <div class="gauge-value" id="tempValue">--</div>
@@ -363,10 +400,16 @@
   const DEVICE_ID = "pond_a1";
   document.getElementById('deviceIdLabel').textContent = DEVICE_ID;
 
-  const GAUGE_CIRCUMFERENCE = 2 * Math.PI * 50; // r=50
-  const GAUGE_MAX_DO = 12; // mg/L เต็มวงแหวน
-  const TEMP_GAUGE_MIN = 20; // °C ว่างวงแหวน
-  const TEMP_GAUGE_MAX = 35; // °C เต็มวงแหวน — ครอบคลุมช่วงอุณหภูมิน้ำบ่อกุ้งทั่วไป
+  const GAUGE_MAX_DO = 12; // mg/L ปลายสุดของมาตรวัด
+  const TEMP_GAUGE_MIN = 15; // °C ต้นมาตรวัด
+  const TEMP_GAUGE_MAX = 35; // °C ปลายมาตรวัด — ครอบคลุมช่วงอุณหภูมิน้ำบ่อกุ้งทั่วไป
+  // มาตรวัดแบบเข็มไมล์รถยนต์: กวาด 240° จาก 8 โมง (240°) ผ่านด้านบน ไปจบที่ 4 โมง (120°)
+  // มุมวัดตามเข็มนาฬิกาจาก 12 นาฬิกา (0° = ชี้ขึ้นตรง) ให้ตรงกับทิศของ CSS rotate()
+  const GAUGE_START_ANGLE = 240;
+  const GAUGE_SWEEP = 240;
+  function needleAngle(frac) {
+    return GAUGE_START_ANGLE + GAUGE_SWEEP * Math.min(Math.max(frac, 0), 1);
+  }
   const STALE_AFTER_SEC = 300; // ถ้าไม่มีข้อมูลใหม่เกินนี้ (วินาที) ถือว่าอุปกรณ์ไม่ตอบสนอง — ปรับตามความถี่ส่งข้อมูลจริงของอุปกรณ์
 
   // ---------- ตั้งค่าสภาพอากาศ (Open-Meteo — ไม่ต้องใช้ API key) ----------
@@ -455,13 +498,11 @@
       document.getElementById('tempValue').textContent = tempVal.toFixed(1);
       document.getElementById('salinityValue').innerHTML = (data.salinity ?? 0) + ' <span>ppt</span>';
 
-      const frac = Math.min(doVal / GAUGE_MAX_DO, 1);
-      const offset = GAUGE_CIRCUMFERENCE * (1 - frac);
-      document.getElementById('gaugeFill').style.strokeDashoffset = offset;
+      const doFrac = doVal / GAUGE_MAX_DO;
+      document.getElementById('doNeedle').style.transform = `rotate(${needleAngle(doFrac)}deg)`;
 
-      const tempFrac = Math.min(Math.max((tempVal - TEMP_GAUGE_MIN) / (TEMP_GAUGE_MAX - TEMP_GAUGE_MIN), 0), 1);
-      const tempOffset = GAUGE_CIRCUMFERENCE * (1 - tempFrac);
-      document.getElementById('tempGaugeFill').style.strokeDashoffset = tempOffset;
+      const tempFrac = (tempVal - TEMP_GAUGE_MIN) / (TEMP_GAUGE_MAX - TEMP_GAUGE_MIN);
+      document.getElementById('tempNeedle').style.transform = `rotate(${needleAngle(tempFrac)}deg)`;
 
       const chip = document.getElementById('doStatusChip');
       if (isStale) {
