@@ -378,9 +378,11 @@
       <div class="chart-sub" style="margin-top:4px;">DO (mg/L)</div>
       <canvas class="trend-canvas" id="historyDayDoCanvas"></canvas>
       <div class="chart-latest" id="historyDayDoTooltip">แตะที่จุดในกราฟเพื่อดูค่า</div>
+      <div class="recent-stats" id="historyDayDoStats"></div>
       <div class="chart-sub" style="margin-top:14px;">อุณหภูมิ (°C)</div>
       <canvas class="trend-canvas" id="historyDayTempCanvas"></canvas>
       <div class="chart-latest" id="historyDayTempTooltip">แตะที่จุดในกราฟเพื่อดูค่า</div>
+      <div class="recent-stats" id="historyDayTempStats"></div>
     </div>
   </div>
 
@@ -815,18 +817,16 @@
     el.innerHTML = rows;
   }
 
-  // สรุปค่าสูงสุด/ต่ำสุด (พร้อมเวลาที่วัดได้) จากค่าที่วัดล่าสุด N ครั้งเดียวกับที่กราฟ/รายการแสดง
-  // สูงสุด/ต่ำสุดของ "ทั้งวันนี้" (ทุกค่าที่วัดได้ตั้งแต่เที่ยงคืน) ไม่ใช่แค่ในกราฟ 10 ค่าล่าสุด
-  function renderRecentStats(statsId, points, getValue, unit) {
+  // สรุปค่าสูงสุด/ต่ำสุด (พร้อมเวลาที่วัดได้) ของค่าที่วัดได้ในช่วงเวลาที่กำหนด — ใช้ทั้งกับ "วันนี้" และหน้าประวัติย้อนหลังรายวัน
+  function renderRangeStats(statsId, points, getValue, unit, rangeStart, rangeEnd, maxLabel, minLabel) {
     const el = document.getElementById(statsId);
-    const todayStart = startOfDayEpoch(Math.floor(Date.now() / 1000));
-    const todays = points.filter(p => p.epoch >= todayStart && p.epoch < todayStart + 24 * 3600 && getValue(p) != null);
-    if (!todays.length) {
+    const inRange = points.filter(p => p.epoch >= rangeStart && p.epoch < rangeEnd && getValue(p) != null);
+    if (!inRange.length) {
       el.innerHTML = '';
       return;
     }
-    let maxP = todays[0], minP = todays[0];
-    todays.forEach(p => {
+    let maxP = inRange[0], minP = inRange[0];
+    inRange.forEach(p => {
       if (getValue(p) > getValue(maxP)) maxP = p;
       if (getValue(p) < getValue(minP)) minP = p;
     });
@@ -837,7 +837,14 @@
         '<div class="recent-stat-time">' + formatClock(p.epoch) + ' น. · ' + formatDateShort(p.epoch) + '</div>' +
         '</div>';
     }
-    el.innerHTML = statCard('🔺 สูงสุดวันนี้', maxP) + statCard('🔻 ต่ำสุดวันนี้', minP);
+    el.innerHTML = statCard(maxLabel, maxP) + statCard(minLabel, minP);
+  }
+
+  // สรุปค่าสูงสุด/ต่ำสุด (พร้อมเวลาที่วัดได้) จากค่าที่วัดล่าสุด N ครั้งเดียวกับที่กราฟ/รายการแสดง
+  // สูงสุด/ต่ำสุดของ "ทั้งวันนี้" (ทุกค่าที่วัดได้ตั้งแต่เที่ยงคืน) ไม่ใช่แค่ในกราฟ 10 ค่าล่าสุด
+  function renderRecentStats(statsId, points, getValue, unit) {
+    const todayStart = startOfDayEpoch(Math.floor(Date.now() / 1000));
+    renderRangeStats(statsId, points, getValue, unit, todayStart, todayStart + 24 * 3600, '🔺 สูงสุดวันนี้', '🔻 ต่ำสุดวันนี้');
   }
 
   function renderRecentReadings() {
@@ -919,6 +926,8 @@
       titleEl.textContent = '📊 ' + formatDateShort(historyView.dayStart);
       drawTrendChart('historyDay-do', 'historyDayDoCanvas', historyPoints, p => p.do, '#0B8A7A', null, historyView.dayStart);
       drawTrendChart('historyDay-temp', 'historyDayTempCanvas', historyPoints, p => p.temp, '#E08B2C', null, historyView.dayStart);
+      renderRangeStats('historyDayDoStats', historyPoints, p => p.do, 'mg/L', historyView.dayStart, historyView.dayStart + 24 * 3600, '🔺 สูงสุด', '🔻 ต่ำสุด');
+      renderRangeStats('historyDayTempStats', historyPoints, p => p.temp, '°C', historyView.dayStart, historyView.dayStart + 24 * 3600, '🔺 สูงสุด', '🔻 ต่ำสุด');
       return;
     }
 
