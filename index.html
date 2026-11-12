@@ -980,8 +980,8 @@
     daysPanel.innerHTML = days.length
       ? days.slice().reverse().map(d => {
           const isToday = d.dayStart === todayStart;
-          const doText = d.do ? d.do.avg.toFixed(2) + ' mg/L' : '—';
-          const tempText = d.temp ? d.temp.avg.toFixed(1) + ' °C' : '—';
+          const doText = d.do ? '🔺' + d.do.max.toFixed(2) + ' 🔻' + d.do.min.toFixed(2) + ' mg/L' : '—';
+          const tempText = d.temp ? '🔺' + d.temp.max.toFixed(1) + ' 🔻' + d.temp.min.toFixed(1) + ' °C' : '—';
           return '<div class="history-row-wrap">' +
             '<button class="history-row" data-day="' + d.dayStart + '">' +
               '<span class="history-row-label">' + formatDateShort(d.dayStart) + (isToday ? ' (วันนี้)' : '') + '</span>' +
